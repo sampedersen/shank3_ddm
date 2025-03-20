@@ -1,4 +1,4 @@
-# ==============================================================================
+# Header  ======================================================================
 # Title: RJAGS_Shank3_DDM.R
 # Description: 
 #       Fit a Drift Diffusion Model (DDM) to model choice behaviors in offer zone
@@ -12,17 +12,17 @@
 #             to load as needed 
 # Usage: [ WIP ]
 #
-# ==============================================================================
-#           Notes
-#-------------------------------------------------------------------------------
+#_______________________________________________________________________________
+#=========================       Notes     =====================================
+#_______________________________________________________________________________
 # RJAGS is an R package for utilizing the Just Another Gibbs Sampler (JAGS) software
 # JAGS is a program used for performing Bayesian statistical modeling via 
 # Markov Chain Monte Carlo (MCMC) methods 
 
 
-# ==============================================================================
-# 1. Set up environment 
-#-------------------------------------------------------------------------------
+#_______________________________________________________________________________
+#====================== 1. Set up environment  =================================
+#_______________________________________________________________________________
 # Clear objects from environment 
 rm(list = ls())
 # Set random seed for reproducibility
@@ -54,9 +54,9 @@ RcppParallel::setThreadOptions(numThreads = 1)
 se <- function(x) {
   sd(x) / sqrt(length(x))}
 
-# ==============================================================================
-# 2. Set up directory paths & imoort data 
-#-------------------------------------------------------------------------------
+#_______________________________________________________________________________
+#=============== 2. Set up directory paths & import data =======================
+#_______________________________________________________________________________
 # Set up paths 
 # Note: edit this when user-deployed (SP 3/20/25)
 # Note: future implementation: route to online-hosted dataset for fixed pathways (SP 3/20/25) 
@@ -73,9 +73,9 @@ data_filepath = data_path / data_filepath             # Don't change this
 #df_raw = read.csv(data_filepath)                     # use this for .csv
 df_raw = read_excel(data_filepath)                    # use this for .xlsx
 
-# ==============================================================================
-# 3. Pre-process data 
-#-------------------------------------------------------------------------------
+#_______________________________________________________________________________
+#==========================    3. Pre-process data     =========================
+#_______________________________________________________________________________
 # Pull needed variables, rename for conventions 
 df = df_raw %>%
   mutate(subj_idx = `mouse`,     # variable containing mouse number 
@@ -87,7 +87,7 @@ df = df_raw %>%
          group = `genotype terminal`) %>%    # variable participant's condition ('WT'=Wildtype, 'HT'=Shank3 het)
   select(subj_idx, group, day, trial, choice, rt, offer)
 
-# Summarize data prior to processing (optional) --------------------------------
+# Summarize data prior to processing (optional) 
 # Plot the number of trials per subject 
 df_summary <- df %>%
   group_by(subj_idx) %>%
@@ -102,9 +102,9 @@ RT_extremes <- c(min(df$rt), max(df$rt))
 ggplot(df,aes(x=rt))+
   geom_histogram(binwidth = .5, fill = "skyblue", color = "black", alpha = 0.7)+
   labs(title="RT Distributions (Pre-Cleaning)", x = "Rts",y = "Freq") +
-  theme_minimal() #-------------------------------------------------------------
+  theme_minimal() 
 
-# Remove RT outliers 
+# Remove RT Outliers         
 # Note: Hard limit cut-offs at [.25s,7s]
 # Note: Relative limits +/- 2SD of average RT per subject 
 df = df %>%
@@ -113,7 +113,7 @@ df = df %>%
          rt < min(7,(mean(rt) + (2*sd(rt))))) %>% 
   ungroup()
 
-# Summarize data after processing (optional) -----------------------------------
+# Summarize data after processing (optional) 
 # Plot the number of trials per subject 
 df_summary <- df %>%
   group_by(subj_idx) %>%
@@ -128,7 +128,7 @@ RT_extremes <- c(min(df$rt), max(df$rt))
 ggplot(df,aes(x=rt))+
   geom_histogram(binwidth = .05, fill = "skyblue", color = "black", alpha = 0.7)+
   labs(title="RT Distribs (Post Cleaning)",x = "Rts",y = "Freq") +
-  theme_minimal() #-------------------------------------------------------------
+  theme_minimal() 
 
 # Compute the number of trials lost due to RT filtering 
 # Note: ~5% loss in data is fine, shouldnt exceed ~8% 
@@ -157,20 +157,21 @@ train_test_split <- df %>%            # Create a new dataframe
 train_data <- filter(train_test_split,Set=="Train")   # Assign to training dataframe
 test_data <- filter(train_test_split,Set=="Test")     # Assign to testing dataframe 
 
-# (Optional) Write training/testing datasets out as .xlsx ----------------------
+# (Optional) Write training/testing datasets out as .xlsx
 training_filename = "training_dataset.xlsx"
 training_filepath = data_path / training_filename
 testing_filename = "testing_dataset.xlsx"
 testing_filepath = data_path / testing_filename
 write_xlsx(train_data, training_filepath)
-write_xlsx(test_data, testing_filepath)#----------------------------------------
+write_xlsx(test_data, testing_filepath)
 
 ### TEMPORARY: Reassign df as training_data for development and troubleshooting purposes 
 # Change this later, if needed 
 df <- train_data
 
-
-# ==============================================================================
+#_______________________________________________________________________________
+#==================== # 4. Model fitting (DEVELOPMENT PHASE) ===================
+#_______________________________________________________________________________
 # 4. Model fitting (DEVELOPMENT PHASE) 
 
 # Note: Fitting model for WT group solely right now
@@ -293,6 +294,77 @@ Data_WT = df %>%
   output_filepath = output_path / output_filename
   save(results_WT,Data_WT,summary_stats_WT, file=output_filepath) 
 
+  
+#_______________________________________________________________________________
+#=====================    # 4c. Sample Console Outputs      ====================
+#_______________________________________________________________________________
+# "Calling the simulation using the parallel method..."
+# "Following the progress of chain 1 (the program will wait for all chains to finish before continuing):"
+    # Model is being ran in parallel using multiple CPU cores 
+    # Console is showing progress for only one chain, but JAGS is running both chains
+    #     simultaneously 
+    # You'll only see progress for one chain at a time, but all chains must finish 
+    #     before proceeding 
+  
+# "Welcome to JAGS 4.3.1 on Thu Mar 20 14:43:31 2025"
+# "JAGS is free software and comes with ABSOLUTELY NO WARRANTY"
+    # Confirms which version of JAGS is running with timestamp for when model fitting began 
+
+# "Loading module: basemod: ok"
+    # Core JAGS module 
+# "Loading module: bugs: ok"
+    # Required module for compatibility with WinBUGS-style models 
+# ". Loading module: wiener: ok"
+    # Required for DDM 
+# ". Loading module: dic: ok"
+    # Required for Deviance Information Criterion (DIC) calculations for model comparison
+  
+  
+#". . Reading data file data.txt"
+    # JAGS is reading the data file (data.txt), which was created internally by run.jags
+#" . Compiling model graph"
+          # JAGS is translating the model into a computational graph 
+#"    Resolving undeclared variables"
+          # JAGS checks that all variables in the model are defined 
+#"    Allocating nodes"
+          # JAGS sets up probability distributions and dependencies 
+  
+# "Graph information:"
+#"    Observed stochastic nodes: 85113"
+          # Number of datapoints 
+#" Unobserved stochastic nodes: 170241"
+          # Unknown parameters that JAGS is estimating 
+#"    Total graph size: 520885"
+          # Total number of elements in the model
+  
+#" . Reading parameter file inits1.txt"
+    # Loading in the initial parameter values from inits1.txt
+    # Even though inits3 is specified, run.jags often generates multiple initsX.txt files 
+#" . Initializing model"
+    # Initialize with starting values 
+  
+#" . Adapting 1000"
+# -------------------------------------------------| 1000
+# ++++++++++++++++++++++++++++++++++++++++++++++++++ 100%
+# Adaptation successful
+    # JAGS adapts the MCMC sampler for 1000 iterations 
+    # Successful adaptation means JAGS tuned its samplers for efficient sampling 
+  
+# . Updating 2000
+# -------------------------------------------------| 2000
+# **************************** 
+    # Burn-in phase begins, with 2000 iterations 
+    # Model is running without storing results to allow the chains to converge 
+    # JAGS will begin collecting posterior samples after 
+
+  
+# ==============================================================================
+# 5. Check diagnostics 
+#-------------------------------------------------------------------------------  
+# Note: This point and beyond is still a WIP and pending model development and outputs 
+  
+
+  
 
 ################################################################################
 # Check diagnostics
