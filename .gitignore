@@ -1,15 +1,20 @@
 # Ignore large data files 
 *.csv
 *.xlsx
+*.xls
 *.mat
 *.h5
+*.jmpprj
+*.jmp
 
 # Ignore specific directories 
-/Data/
+#/Data/
 
 # Ignore IDE settings
 .vscode/
 .Rhistory
+.Rproj.user/
+.RData
 
 # Ignore system files
 .DS_Store
