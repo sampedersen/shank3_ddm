@@ -42,6 +42,7 @@ suppressPackageStartupMessages(lapply(pack, require, character.only = TRUE))
 # Limit core usage for parallel processing 
 # Note: my system supports 20 cores; try bumping the core limit incrementally (SP; 3/20/25) 
 RcppParallel::setThreadOptions(numThreads = 1)
+RcppParallel::setThreadOptions(numThreads = 8)
 # RcppParallel::setThreadOptions(numThreads = 2)
 # RcppParallel::setThreadOptions(numThreads = 4)
 
@@ -68,8 +69,8 @@ code_path = home_dir / "Code"
 
 # Load data
 # Note: edit this section depending on how the data is stored 
-data_filename = "Epoch4_Mid-to-Late_DDM_Data.csv"     # Change this to be the name+ext of data file  
-data_filepath = data_path / data_filepath             # Don't change this 
+data_filename = "Epoch4_Mid-to-Late_DDM_Data.xlsx"     # Change this to be the name+ext of data file  
+data_filepath = data_path / data_filename             # Don't change this 
 #df_raw = read.csv(data_filepath)                     # use this for .csv
 df_raw = read_excel(data_filepath)                    # use this for .xlsx
 
@@ -135,10 +136,9 @@ ggplot(df,aes(x=rt))+
 lossToCleaning <- (nrow(df_raw) - nrow(df)) / nrow(df_raw)
 
 # Make rejected choices into negative RT values 
-df <- df %>%
-  idx = which(df$choice==0) %>%                  # Pull indices for rejected offer trials 
-  df_coded$RT <- df_coded$rt %>%                 # Duplicate RTs to a new column   
-  df_coded$RT[idx] <- df_coded$rt[idx]*-1        # Update new column for signed RT values 
+idx <- which(df$choice == 0)  # Pull indices for rejected offer trials 
+df$RT <- df$rt                # Duplicate RTs to a new column   
+df$RT[idx] <- df$rt[idx] * -1 # Update new column for signed RT values 
 
 # Separate for training and testing 
 # Note: 80% of trials per day per mouse should be used for training model,
@@ -281,10 +281,10 @@ Data_WT = df %>%
                          #inits=c(inits1,inits2, inits3), # Commenting this out since we are only testing init3
                          plots = TRUE, method="parallel", module="wiener",
                          #burnin=60000,     # Decreasing for development/troubleshooting 
-                         burnin=5000,
+                         burnin=1000,
                          #sample=10000,     # Decreasing for development/troubleshooting 
-                         sample=1000,
-                         thin=10)
+                         sample=500,
+                         thin=100)
   # Save summary statistics
   summary_stats_WT<-summary(results)
   
