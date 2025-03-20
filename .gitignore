@@ -1,0 +1,16 @@
+# Ignore large data files 
+*.csv
+*.xlsx
+*.mat
+*.h5
+
+# Ignore specific directories 
+/Data/
+
+# Ignore IDE settings
+.vscode/
+.Rhistory
+
+# Ignore system files
+.DS_Store
+Thumbs.db 
