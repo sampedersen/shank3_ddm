@@ -134,6 +134,12 @@ ggplot(df,aes(x=rt))+
 # Note: ~5% loss in data is fine, shouldnt exceed ~8% 
 lossToCleaning <- (nrow(df_raw) - nrow(df)) / nrow(df_raw)
 
+# Make rejected choices into negative RT values 
+df <- df %>%
+  idx = which(df$choice==0) %>%                  # Pull indices for rejected offer trials 
+  df_coded$RT <- df_coded$rt %>%                 # Duplicate RTs to a new column   
+  df_coded$RT[idx] <- df_coded$rt[idx]*-1        # Update new column for signed RT values 
+
 # Separate for training and testing 
 # Note: 80% of trials per day per mouse should be used for training model,
 #       remaining 20% should be saved for testing model performance 
@@ -163,119 +169,130 @@ write_xlsx(test_data, testing_filepath)#----------------------------------------
 # Change this later, if needed 
 df <- train_data
 
-################################################################################
-# Model fitting (Model 1: No drift intercept)
-# Fit the model separately for each group 
-# For each group (BD or HC)
-#for (gg in unique(df$group)) {
-    # Filter Data for one group at a time 
-  gg = "WT"
-    Data_WT = df %>%
-        filter(group == gg) %>%
-        mutate(idxP = as.numeric(ordered(subj_idx)))  # Convert participant IDs into numeric indices 
-    # Differentiate RTs for choice type 
-    idx = which(Data$choice==0)       # Identify indices rejected trials 
-    Data$RT <- Data$rt                # Pull RTs to new column 
-    Data$RT[idx] = Data$rt[idx] * -1  # Make rejected choices' RTs negative values 
 
-    
-    idxP = Data$idxP          # Make a sequentially numbered subj index
-    offer = Data$offer        # Pull offers 
-    rtpos = Data$rt           # Pull RTs (original positives)
+# ==============================================================================
+# 4. Model fitting (DEVELOPMENT PHASE) 
 
-    # Modeling variables 
-    y= Data$RT                # Signed RTs
-    N = length(y)             # Number of total trials 
-    ns = length(unique(idxP)) # Number of subjects 
+# Note: Fitting model for WT group solely right now
+# Note: Code can be adapted to for-loop over each group, but can be computationally 
+#       expensive
+# Note: For now, do WT and evaluate before attempting HT group 
+# Note: Uses Model 1 (no drift intercept)
 
-    #--------------------------------------------
-    
-    # Prepare data in JAGS format for processing 
-    dat <- dump.format(list(N=N, y=y, idxP=idxP, offer=offer, rt=rtpos, ns=ns))
+# 4a. Prepare data for WT group ------------------------------------------------
+Data_WT = df %>%
+  filter(group=="WT") %>%                     # Filter for WT group only 
+  mutate(idxP=as.numeric(ordered(subj_idx)))  # Convert participant IDs into indices 
 
-    # Initialize 3 parameters for Markov Chain Monte Carlo (MCMC) chains 
-    # Each parameter has a mean value (.mu) - average across subjects
-    # precision parameter (.pr or bias.kappa) - how much individual subjects vary around the mean 
-        #     Higher value - more precision/less individual variability around mean 
-        #     Lower value - less precision/more individual variability around mean 
-    # alpha.mu - mean boundary separation (decision threshold)
-    # alpha.pr - precision for boundary separation 
-    
-    # theta.mu - mean non-decision time (Ter)
-    # theta.pr - precision for non-decision time
-    
-    # b1.mu - mean drift rate effect of offer
-    # b1.pr - precision for drift rate effect 
-    
-    # bias.mu - mean starting point bias (initial preference)
-    #     bias.mu = 0.5  ==> no bias
-    #     bias.mu < 0.5  ==> bias towards rejecting
-    #     bias.mu > 0.5  ==> bias towards accepting 
-    # bias.kappa - precision for bias
-    
-    # y_pred - initial predicted RT values 
-    
-    # .RNG.name - specifies random number generator 
-    #       inits3 - Super-Duper
-    #       inits2 - Wichmann-Hill
-    #       inits1 - Mersenne-Twister
-    # .RNG.seed - random seed (99999) for reproducibility 
-    inits3 <- dump.format(list( alpha.mu=1, alpha.pr=0.5, 
-                                theta.mu=0.200, theta.pr=0.25,  
-                                b1.mu=0.25, b1.pr=0.20, 
-                                bias.mu=0.5, bias.kappa=1, 
-                                y_pred=y,  
-                                .RNG.name="base::Super-Duper", .RNG.seed=99999))
+  idxP = Data_WT$idxP         # Sequentially numbered list of subject indices 
+  offer = Data_WT$offer       # Pull offers 
+  rtpos = Data_WT$rt          # Pull RTs (original, non-signed)
+  
+  # Modeling variables
+  y=Data_WT$RT                # Signed RT values (to be predicted) 
+  N= length(y)                # Number of total trials 
+  ns=length(unique(idxP))     # number of subjects 
+  
+  # Prepare data in JAGS format 
+  dat <- dump.format(list(N=N, 
+                          y=y, 
+                          idxP=idxP, 
+                          offer=offer, 
+                          rt=rtpos, 
+                          ns=ns))
+  
+#   4b. Parameter initialization -----------------------------------------------
+  # Notes on variables: 
+  #     - Initializing parameters for MCMC Chains 
+  #     - Each parameter has a mean value (.mu) - average across subjects
+  #     - And precision parameter (.pr or bias.kappa) - how much individual subjects vary around the mean 
+  #         - Higher value - more precision/less individual variability around mean 
+  #         - Lower value - less precision/more individual variability around mean 
+  #     - (TEMP) Able to initialize 3 sets, but for DEVELOPMENT PHASE, only using 1 
+  
+  # Variable meanings and assignments 
+#      - alpha.mu - mean boundary separation (decision threshold)
+#      - alpha.pr - precision for boundary separation 
+      
+#      - theta.mu - mean non-decision time (Ter)
+#      - theta.pr - precision for non-decision time
+      
+#      - b1.mu - mean drift rate effect of offer
+#      - b1.pr - precision for drift rate effect 
+      
+#      - bias.mu - mean starting point bias (initial preference)
+#         - bias.mu = 0.5  ==> no bias
+#         - bias.mu < 0.5  ==> bias towards rejecting
+#         - bias.mu > 0.5  ==> bias towards accepting 
+#      - bias.kappa - precision for bias
+      
+#      - y_pred - initial predicted RT values 
+      
+#      - .RNG.name - specifies random number generator 
+#         - inits3 - Super-Duper
+#         - inits2 - Wichmann-Hill
+#         - inits1 - Mersenne-Twister
+#       - .RNG.seed - random seed (99999) for reproducibility 
+  
+  # Selected parameters for init3 (current attempt)
+  inits3 <- dump.format(list(alpha.mu=1, alpha.pr=0.5,          # Alpha
+                             theta.mu=0.200, theta.pr=0.25,     # Theta
+                             b1.mu=0.25, b1.pr=0.20,            # Drift rate
+                             bias.mu=0.5, bias.kappa=1,         # Bias
+                             y_pred=y,                          # RT values
+                             .RNG.name="base::Super-Duper",     # Random Number Generator
+                             .RNG.seed=99999))                  # Seed selected 
 
-
-    inits2 <- dump.format(list( alpha.mu=2.5, alpha.pr=0.1, theta.mu=0.2,
-                                theta.pr=0.05, b1.mu=0.0, b1.pr=0.01, bias.mu=0.5,
-                                bias.kappa=1, y_pred=y,  .RNG.name="base::Wichmann-Hill", .RNG.seed=1234))
-
-    inits1 <- dump.format(list( alpha.mu=2.0, alpha.pr=0.1, theta.mu=0.3,
-                                theta.pr=0.05, b1.mu=-0.1, b1.pr=0.01, bias.mu=0.6,
-                                bias.kappa=1, y_pred=y, .RNG.name="base::Mersenne-Twister", .RNG.seed=6666 ))
+  # Selected parameters for init2 (not currently in use)
+  inits2 <- dump.format(list(alpha.mu=2.5, alpha.pr=0.1, theta.mu=0.2,
+                             theta.pr=0.05, b1.mu=0.0, b1.pr=0.01, bias.mu=0.5,
+                             bias.kappa=1, y_pred=y,  .RNG.name="base::Wichmann-Hill", .RNG.seed=1234))
+  # Selected parameters for init2 (not currently in use)
+  inits1 <- dump.format(list(alpha.mu=2.0, alpha.pr=0.1, theta.mu=0.3,
+                             theta.pr=0.05, b1.mu=-0.1, b1.pr=0.01, bias.mu=0.6,
+                             bias.kappa=1, y_pred=y, .RNG.name="base::Mersenne-Twister", .RNG.seed=6666 ))
     
-    # Specify model parameters to monitor 
-    # Deviance = how well the model fits the data (minimize as much as possible)
-    # Group level parameters - overall effects to boundary, Ter, bias, drift effects 
-    # Subject level parameters - individual differences in alpha, theta, bias, b1 
-    monitor = c("deviance",
-                # Group-level parameters (boundary, non-decision time, starting-point bias, effect of offer on drift rate)
-                "alpha.mu","theta.mu","bias.mu","b1.mu",
-                # Subject-level parameters
-                "alpha.p","theta.p","bias.p","b1.p")
+  # Specify model parameters to monitor 
+  #     - Deviance = how well the model fits the data (minimize as much as possible)
+  #     - Group level parameters - overall effects to boundary, Ter, bias, drift effects 
+  #     - Subject level parameters - individual differences in alpha, theta, bias, b1
+  monitor = c("deviance",
+              # Group-level parameters (boundary, non-decision time, starting-point bias, effect of offer on drift rate)
+              "alpha.mu","theta.mu","bias.mu","b1.mu",
+              # Subject-level parameters
+              "alpha.p","theta.p","bias.p","b1.p")
 
-    # Run the JAGS model with parallel MCMC sampling 
-    # Run the JAGS model using M1_ug_drift.txt
-    # Specify 3 MCMC chains 
-    #   Number to run in parallel; increasing is more robust but slower, while lower
-    #     is faster but may converge poorly 
-    # Plots posterior distributions automatically (plots=true)
-    results_WT <- run.jags(model=file.path(model_path,"M1_ug_drift.txt"), 
-                        monitor=monitor, data=dat, n.chains=3, 
-                        inits=inits3,
-                        #inits=c(inits1,inits2, inits3), 
-                        plots = TRUE, method="parallel", module="wiener", 
-                        # Number of samples to burn-in/discard to remove transient effects (60k)
-                        # Increasing is more stable but longer, decreasing is faster
-                        # but may have poor convergence 
-                        #burnin=60000, 
-                        burnin=5000, 
-                        # Number of iterations retained for analysis 
-                        # Higher is more robust, lower is faster but noisier 
-                        sample=1000, 
-                        #sample=10000, 
-                        # Only keep every 10th sample to reduce autocorrelations 
-                        thin=10)
-    # Summary statistics 
-    WT_suuum<-summary(results)
-    
-    # Save model outputs and results for later analysis 
-    # Generates file name based on group 
-    save(results_WT,Data_WT,suuum_WT, file= output_path / paste0("M1_Params_",gg,".RData")) 
-    
-}
+  # Run the JAGS model using M1_ug_drift.txt and parallel MCMC sampling 
+  # - Specify 3 MCMC chains (how many to run in parallel; increasing is more 
+  #     robust but slower, while lower is faster but may converge poorly 
+  # - Plots posterior distributions automatically (plots=true)
+  # Robust / speed tradeoffs 
+  #     - Burnin: number of samples to discard; removes transient effects 
+  #           - Increasing is more stable/slower, decreasing is faster/poorer convergence
+  #     - Sample: Number of iterations to retain for analysis 
+  #           - Increasing is more stable/slower, decreasing is faster/poorer convergence
+  #     - Thin: Sampling frequency for reducing auto-correlations
+  #           - Increasing is faster/poorer convergence, decreasing is more stable/slower 
+  #           - Keeping every 20th iteration, vs every 10th iteration 
+  results_WT <- run.jags(model=file.path(model_path,"M1_ug_drift.txt"),
+                         monitor=monitor, data=dat, n.chains=3,
+                         inits=inits3,
+                         #inits=c(inits1,inits2, inits3), # Commenting this out since we are only testing init3
+                         plots = TRUE, method="parallel", module="wiener",
+                         #burnin=60000,     # Decreasing for development/troubleshooting 
+                         burnin=5000,
+                         #sample=10000,     # Decreasing for development/troubleshooting 
+                         sample=1000,
+                         thin=10)
+  # Save summary statistics
+  summary_stats_WT<-summary(results)
+  
+  # Save model outputs and results for later analysis
+  # Generates file name based on group
+  output_filename = "M1_params_WT.RData"
+  output_filepath = output_path / output_filename
+  save(results_WT,Data_WT,summary_stats_WT, file=output_filepath) 
+
 
 ################################################################################
 # Check diagnostics
