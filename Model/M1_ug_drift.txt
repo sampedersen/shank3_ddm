@@ -1,0 +1,73 @@
+model {
+    # model structure: hyper parameters-subject-trial-likelihood
+    # code before for loop are setting up hyper parameters/hyperpriors
+    
+    # Mean estimates of the linear regressions for the weights
+        b1.mu ~ dnorm(0, 1)
+	# precisions for the linear regression estimates
+        b1.pr ~ dgamma(1, 0.1)
+
+    # mean estimates DDM parameters
+        alpha.mu ~ dunif(0.001, 5) # boundary 
+        theta.mu ~ dunif(0, 10) # non decision times
+	# Error terms for DDM parameters
+        alpha.pr ~ dgamma(1, 0.1) 
+        theta.pr ~ dgamma(1, 0.1)
+
+    # error term for the regression function (drift rate)
+    # code implemented by others for establishing hyperprior for drift rate
+        e.sG <- pow(e.m,2) / pow(e.d,2)
+        e.rG <- e.m / pow(e.d,2)
+
+        e.m ~ dgamma(1,0.2)T(0.001,20) #drift rate hyperprior distribution
+        e.d ~ dgamma(1,0.5)T(0.001,20)
+
+    # Start Bias of the DDM 
+    # prior: parameter for bera distribution
+	    bias.alpha <- bias.mu * bias.kappa
+        bias.beta <- (1 - bias.mu) * bias.kappa
+	# hyperprior 
+        bias.mu ~ dbeta(2, 2)T(0.01,0.99)
+        bias.kappa ~ dgamma(1, 0.5)
+
+
+    for (p in 1:ns) { # subject level
+
+        b1.p[p] ~ dnorm(b1.mu, b1.pr)
+
+        alpha.p[p] ~ dnorm(alpha.mu, alpha.pr)
+
+        theta.p[p] ~ dnorm(theta.mu, theta.pr)
+
+        e.p.tau[p] ~ dgamma(e.sG, e.rG)T(0.001,20) #drift rate 
+
+        bias.p[p] ~ dbeta(bias.alpha, bias.beta)T(0.01,0.99) #T() scaling function 
+
+    }
+
+    for (i in 1:N) { # trial level
+
+        y[i] ~ dwiener(bound[i] , tau[i], bet[i], w[i]) 
+        
+        # generate predictions, parameters from subject level
+        y_pred[i] ~ dwiener(bound[i] , tau[i], bet[i], w[i]) #return the PDF of data|model
+        
+        # generate trial-by-trial boundary
+        bound[i] <- alpha.p[idxP[i]]
+
+        # generate trial-by-trial nDT
+        tau[i] <- theta.p[idxP[i]] # non-decision time
+        dT[i] <- rt[i] - tau[i] # this is deciion time
+
+        # generate trial-by-trial Start Bias
+        bet[i] <- bias.p[idxP[i]]
+
+        # The actual drift rate, added variability to account for emprical facts
+        w[i] ~ dnorm(li.hat[i], e.p.tau[idxP[i]]) #informed by subject level estimate, e.p.tau cross trial noise
+
+        # The linear regression of the value probabilities and value magnitude
+        li.hat[i] <- b1.p[idxP[i]] * offer[i]
+
+    }
+}
+
