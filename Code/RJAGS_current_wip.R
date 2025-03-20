@@ -356,7 +356,12 @@ Data_WT = df %>%
     # Burn-in phase begins, with 2000 iterations 
     # Model is running without storing results to allow the chains to converge 
     # JAGS will begin collecting posterior samples after 
-
+  
+#  . . . . . . . . . . Updating 10000
+#  -------------------------------------------------| 10000
+# Sampling phase 
+# JAGS is running 10,000 iterations across all chains 
+# Only keeps every 20 of the iterations 
   
 # ==============================================================================
 # 5. Check diagnostics 
