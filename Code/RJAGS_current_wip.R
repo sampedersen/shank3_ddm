@@ -20,30 +20,41 @@
 # Markov Chain Monte Carlo (MCMC) methods 
 
 
-
+# ==============================================================================
+# 1. Set up environment 
+#-------------------------------------------------------------------------------
 # Clear objects from environment 
 rm(list = ls())
+# Set random seed for reproducibility
+b_seed = 10051990
+set.seed(b_seed)
 
-# Packages to load; suppressed messages 
-#install.packages("writexl")
+# Install +/- load packages 
 pack = c("runjags","tidyverse","purrr","DEoptim","Rcpp","parallel","RcppParallel","loo","coda",
          "stats4","pracma","tidymodels","fdrtool","boot","ggridges","ggpubr",
          "HDInterval","fs","here","readxl","dplyr","readr","writexl")
+# Optional - install packages if not already installed 
+new_packages <- pack[!(pack %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+# Load required packaged (suppress start-up messages) 
 suppressPackageStartupMessages(lapply(pack, require, character.only = TRUE))
 
-
-# **** Notes needed ****
-
-
-# Limits multi-threading to 1 core for parallel computing 
+# Limit core usage for parallel processing 
+# Note: my system supports 20 cores; try bumping the core limit incrementally (SP; 3/20/25) 
 RcppParallel::setThreadOptions(numThreads = 1)
+# RcppParallel::setThreadOptions(numThreads = 2)
+# RcppParallel::setThreadOptions(numThreads = 4)
 
-# Helper function for computing standard error of a numeric vector 
-se = function(x) sd(x) / sqrt(length(x))
+#' Define helper function for standard error (se)
+#' @param x A numeric vector for which the standard error is to be computed.
+#' @return A numeric value representing the standard error of the input vector.
+#' @examples
+#' # Example usage:
+#' se(c(1, 2, 3, 4, 5))
+se <- function(x) {
+  sd(x) / sqrt(length(x))}
 
-# Random seed for reproducibility
-b_seed = 10051990
-set.seed(b_seed)
+
 
 # Define paths for data and model files 
 home_dir = path("C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank_DDM")
