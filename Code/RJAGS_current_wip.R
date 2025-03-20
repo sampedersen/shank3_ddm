@@ -54,138 +54,113 @@ RcppParallel::setThreadOptions(numThreads = 1)
 se <- function(x) {
   sd(x) / sqrt(length(x))}
 
-
-
-# Define paths for data and model files 
-home_dir = path("C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank_DDM")
+# ==============================================================================
+# 2. Set up directory paths & imoort data 
+#-------------------------------------------------------------------------------
+# Set up paths 
+# Note: edit this when user-deployed (SP 3/20/25)
+# Note: future implementation: route to online-hosted dataset for fixed pathways (SP 3/20/25) 
+home_dir = path("C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank3")
 data_path = home_dir / "Data"
-preproc_data_path = data_path / "Pre-Processed"
-model_path = home_dir / "Scripts/Model"
+model_path = home_dir / "Model"
 output_path = home_dir / "Outputs"
-
-
-################################################################################
+code_path = home_dir / "Code"
 
 # Load data
-#df_raw = read.csv(data_path / "Pre-Processed/Epoch4_Mid-to-Late_DDM_Data.csv")
-df_raw = read_excel(preproc_data_path / "Epoch4_Mid-to-Late_DDM_Data.xlsx")
+# Note: edit this section depending on how the data is stored 
+data_filename = "Epoch4_Mid-to-Late_DDM_Data.csv"     # Change this to be the name+ext of data file  
+data_filepath = data_path / data_filepath             # Don't change this 
+#df_raw = read.csv(data_filepath)                     # use this for .csv
+df_raw = read_excel(data_filepath)                    # use this for .xlsx
 
-# !! Note this assume participant is a receiver in the UG !!
-
-# Pre-processing - identify the column names associated with each variable 
+# ==============================================================================
+# 3. Pre-process data 
+#-------------------------------------------------------------------------------
+# Pull needed variables, rename for conventions 
 df = df_raw %>%
-  mutate(subj_idx = `mouse`,     # variable containing participant IDs
-         day = `day`,            # variable containing day 
+  mutate(subj_idx = `mouse`,     # variable containing mouse number 
+         day = `day`,            # variable containing day of testing 
          trial = `trial`,        # variable containing trial numbers
          choice = `OZ outcome 1 or 0`,       # variable containing choice (coded, 1=accept, 0=reject)
          rt = `offer zone RT (s)`,           # variable containing rt in seconds
          offer = `offer`,        # variable containing offer amount
-         group = `genotype terminal`) %>%    # variable participant's condition (BD=binge-drinker, HC=healthy control)
+         group = `genotype terminal`) %>%    # variable participant's condition ('WT'=Wildtype, 'HT'=Shank3 het)
   select(subj_idx, group, day, trial, choice, rt, offer)
 
-# Summarize data prior to processing 
-
-# Number of trials per subject 
+# Summarize data prior to processing (optional) --------------------------------
+# Plot the number of trials per subject 
 df_summary <- df %>%
   group_by(subj_idx) %>%
   summarise(n = length(rt)) %>%
   as.data.frame()
-# plot 
 ggplot(df_summary, aes(x = n)) +
   geom_histogram(binwidth = 100, fill = "skyblue", color = "black", alpha = 0.7) +
-  labs(title = "Number of Trials per Subject (Pre Cleaning)",
-       x = "Number of Trials",
-       y = "Frequency") +
+  labs(title = "Number of Trials per Subject (Pre Cleaning)",x = "Number of Trials",y = "Frequency") +
   theme_minimal()
-
 # RT distributions
-min(df$rt)
-max(df$rt)
+RT_extremes <- c(min(df$rt), max(df$rt))
 ggplot(df,aes(x=rt))+
   geom_histogram(binwidth = .5, fill = "skyblue", color = "black", alpha = 0.7)+
-         labs(title="RT Distribs (Pre Cleaning)",
-              x = "Rts",
-              y = "Freq") +
-         theme_minimal()
+  labs(title="RT Distributions (Pre-Cleaning)", x = "Rts",y = "Freq") +
+  theme_minimal() #-------------------------------------------------------------
 
-# Remove outliers 
+# Remove RT outliers 
+# Note: Hard limit cut-offs at [.25s,7s]
+# Note: Relative limits +/- 2SD of average RT per subject 
 df = df %>%
-  # Hard limits at [.25s,7s]
-  # Anything outside of 2 SD of mean for that subject 
   group_by(subj_idx) %>%
-  filter(rt > max(.250,(mean(rt) - (2*sd(rt)))), # hard floor of 250 ms
-         rt < min(7,(mean(rt) + (2*sd(rt))))) %>% # hard ceiling of 7 sec
+  filter(rt > max(.250,(mean(rt) - (2*sd(rt)))), 
+         rt < min(7,(mean(rt) + (2*sd(rt))))) %>% 
   ungroup()
 
-# Summarize data prior to processing 
-
-# Number of trials per subject 
+# Summarize data after processing (optional) -----------------------------------
+# Plot the number of trials per subject 
 df_summary <- df %>%
   group_by(subj_idx) %>%
   summarise(n = length(rt)) %>%
   as.data.frame()
-# plot 
 ggplot(df_summary, aes(x = n)) +
   geom_histogram(binwidth = 100, fill = "skyblue", color = "black", alpha = 0.7) +
-  labs(title = "Number of Trials per Subject (Post Cleaning)",
-       x = "Number of Trials",
-       y = "Frequency") +
+  labs(title = "Number of Trials per Subject (Post Cleaning)",x = "Number of Trials",y = "Frequency") +
   theme_minimal()
-
 # RT distributions
-min(df$rt)
-max(df$rt)
+RT_extremes <- c(min(df$rt), max(df$rt))
 ggplot(df,aes(x=rt))+
   geom_histogram(binwidth = .05, fill = "skyblue", color = "black", alpha = 0.7)+
-  labs(title="RT Distribs (Post Cleaning)",
-       x = "Rts",
-       y = "Freq") +
-  theme_minimal()
+  labs(title="RT Distribs (Post Cleaning)",x = "Rts",y = "Freq") +
+  theme_minimal() #-------------------------------------------------------------
 
-# Compute post-filtering data loss (should be ~5%, no more than 8%)
-(nrow(df_raw) - nrow(df)) / nrow(df_raw)
+# Compute the number of trials lost due to RT filtering 
+# Note: ~5% loss in data is fine, shouldnt exceed ~8% 
+lossToCleaning <- (nrow(df_raw) - nrow(df)) / nrow(df_raw)
 
-
-# Separate 80% for training, 20% for testing 
-# Pull 80% of trials per day per mouse 
-train_test_split <- df %>% 
-  group_by(subj_idx,day) %>%
-  # Create a new column, Set using mutate() function
-  # runif() generates random numbers from a uniform distribution between 0 and 1 
-  # n() is the number of rows of data (number of trials for each mouse, each day)
-  # runif(n()) generates a number of random values based on n()
-  # runif(n()) generates n() random numbers from uniform distribution 
-  # If the value generated is less than 0.8, assign to Training set; otherwise, 
-  #   assign to Testing set 
-  # Should result in approximately 80% of trials (per mouse per day / all trials)
-  #   being split into training (20% testing) 
+# Separate for training and testing 
+# Note: 80% of trials per day per mouse should be used for training model,
+#       remaining 20% should be saved for testing model performance 
+train_test_split <- df %>%            # Create a new dataframe 
+  group_by(subj_idx,day) %>%          # Group by mouse and by day 
   mutate(Set = ifelse(runif(n()) < 0.8, "Train","Test"))
-train_data <- filter(train_test_split,Set=="Train")
-test_data <- filter(train_test_split,Set=="Test")
+# Notes for function above: 
+#     - Create a new column, Set, using mutate() function
+#     - runif() generates random numbers from a uniform distribution between 0 and 1 
+#     - n() is the number of rows of data (number of trials for each mouse, each day)
+#     - runif(n()) generates a number of random values based on n()
+#     - If the value generated is less than 0.8, assign to Training set; otherwise, 
+#         assign to Testing set 
+#     - Should result in approximately 80/20 train/test split 
+train_data <- filter(train_test_split,Set=="Train")   # Assign to training dataframe
+test_data <- filter(train_test_split,Set=="Test")     # Assign to testing dataframe 
 
-# Count the number of "Train" and "Test" for each subject and day
-train_test_count <- train_test_split %>%
-  group_by(subj_idx, day, Set) %>%
-  summarise(count = n()) %>%
-  ungroup()
+# (Optional) Write training/testing datasets out as .xlsx ----------------------
+training_filename = "training_dataset.xlsx"
+training_filepath = data_path / training_filename
+testing_filename = "testing_dataset.xlsx"
+testing_filepath = data_path / testing_filename
+write_xlsx(train_data, training_filepath)
+write_xlsx(test_data, testing_filepath)#----------------------------------------
 
-# Plot the proportion of "Train" vs "Test"
-ggplot(train_test_count, aes(x = subj_idx, y = count, fill = Set)) +
-  geom_bar(stat = "identity", position = "stack") +  # Stacked bar plot
-  facet_wrap(~day, scales = "free_x") +  # Facet by day
-  labs(title = "Train vs Test Distribution per Subject per Day",
-       x = "Subject",
-       y = "Number of Trials",
-       fill = "Set") +
-  scale_fill_manual(values = c("Train" = "skyblue", "Test" = "lightcoral")) +  # Custom colors for Train and Test
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate x-axis labels for readability
-
-# Write out 
-write_xlsx(train_data, preproc_data_path / "train_data.xlsx")
-write_xlsx(test_data, preproc_data_path / "test_data.xlsx")
-
-# Reassign df as training dataset for now 
+### TEMPORARY: Reassign df as training_data for development and troubleshooting purposes 
+# Change this later, if needed 
 df <- train_data
 
 ################################################################################
