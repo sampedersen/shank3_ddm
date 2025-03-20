@@ -1,6 +1,25 @@
-# Fit data using HDDM
-# JAGS = Just Another Gibbs Sampler 
-# Bayesian inference 
+# ==============================================================================
+# Title: RJAGS_Shank3_DDM.R
+# Description: 
+#       Fit a Drift Diffusion Model (DDM) to model choice behaviors in offer zone
+#       of Restaurant Row for wildtype (WT) and Shank3 haploidinsufficient (HT) 
+#       mice.
+# Contributors: Blair Shevlin (primary code author), Sam Pedersen (modified and
+#     adapted for current use)
+# Date Created: Mar 20 2025
+# Dependencies: 
+#       - R packages listed in line [XX]; use line [xx] to install and line [XX]
+#             to load as needed 
+# Usage: [ WIP ]
+#
+# ==============================================================================
+#           Notes
+#-------------------------------------------------------------------------------
+# RJAGS is an R package for utilizing the Just Another Gibbs Sampler (JAGS) software
+# JAGS is a program used for performing Bayesian statistical modeling via 
+# Markov Chain Monte Carlo (MCMC) methods 
+
+
 
 # Clear objects from environment 
 rm(list = ls())
