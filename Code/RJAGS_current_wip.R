@@ -286,7 +286,7 @@ Data_WT = df %>%
                          sample=500,
                          thin=100)
   # Save summary statistics
-  summary_stats_WT<-summary(results)
+  summary_stats_WT<-summary(results_WT)
   
   # Save model outputs and results for later analysis
   # Generates file name based on group
