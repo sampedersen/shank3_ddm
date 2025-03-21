@@ -42,7 +42,7 @@ suppressPackageStartupMessages(lapply(pack, require, character.only = TRUE))
 # Limit core usage for parallel processing 
 # Note: my system supports 20 cores; try bumping the core limit incrementally (SP; 3/20/25) 
 RcppParallel::setThreadOptions(numThreads = 1)
-RcppParallel::setThreadOptions(numThreads = 8)
+RcppParallel::setThreadOptions(numThreads = 15)
 # RcppParallel::setThreadOptions(numThreads = 2)
 # RcppParallel::setThreadOptions(numThreads = 4)
 
@@ -181,16 +181,16 @@ df <- train_data
 # Note: Uses Model 1 (no drift intercept)
 
 # 4a. Prepare data for WT group ------------------------------------------------
-Data_WT = df %>%
+Data_WT_attempt2 = df %>%
   filter(group=="WT") %>%                     # Filter for WT group only 
   mutate(idxP=as.numeric(ordered(subj_idx)))  # Convert participant IDs into indices 
 
-  idxP = Data_WT$idxP         # Sequentially numbered list of subject indices 
-  offer = Data_WT$offer       # Pull offers 
-  rtpos = Data_WT$rt          # Pull RTs (original, non-signed)
+  idxP = Data_WT_attempt2$idxP         # Sequentially numbered list of subject indices 
+  offer = Data_WT_attempt2$offer       # Pull offers 
+  rtpos = Data_WT_attempt2$rt          # Pull RTs (original, non-signed)
   
   # Modeling variables
-  y=Data_WT$RT                # Signed RT values (to be predicted) 
+  y=Data_WT_attempt2$RT                # Signed RT values (to be predicted) 
   N= length(y)                # Number of total trials 
   ns=length(unique(idxP))     # number of subjects 
   
@@ -236,13 +236,13 @@ Data_WT = df %>%
 #       - .RNG.seed - random seed (99999) for reproducibility 
   
   # Selected parameters for init3 (current attempt)
-  inits3 <- dump.format(list(alpha.mu=1, alpha.pr=0.5,          # Alpha
-                             theta.mu=0.200, theta.pr=0.25,     # Theta
-                             b1.mu=0.25, b1.pr=0.20,            # Drift rate
-                             bias.mu=0.5, bias.kappa=1,         # Bias
+  inits3 <- dump.format(list(alpha.mu=2, alpha.pr=.5,          # Alpha
+                             theta.mu=0.200, theta.pr=0.005,     # Theta
+                             b1.mu=0.16, b1.pr=0.1,            # Drift rate
+                             bias.mu=0.52, bias.kappa=.5,         # Bias
                              y_pred=y,                          # RT values
                              .RNG.name="base::Super-Duper",     # Random Number Generator
-                             .RNG.seed=99999))                  # Seed selected 
+                             .RNG.seed=67882))                  # Seed selected 
 
   # Selected parameters for init2 (not currently in use)
   inits2 <- dump.format(list(alpha.mu=2.5, alpha.pr=0.1, theta.mu=0.2,
@@ -275,24 +275,24 @@ Data_WT = df %>%
   #     - Thin: Sampling frequency for reducing auto-correlations
   #           - Increasing is faster/poorer convergence, decreasing is more stable/slower 
   #           - Keeping every 20th iteration, vs every 10th iteration 
-  results_WT <- run.jags(model=file.path(model_path,"M1_ug_drift.txt"),
+  results_WT2 <- run.jags(model=file.path(model_path,"M1_ug_drift.txt"),
                          monitor=monitor, data=dat, n.chains=3,
                          inits=inits3,
                          #inits=c(inits1,inits2, inits3), # Commenting this out since we are only testing init3
                          plots = TRUE, method="parallel", module="wiener",
                          #burnin=60000,     # Decreasing for development/troubleshooting 
-                         burnin=1000,
+                         burnin=2000,
                          #sample=10000,     # Decreasing for development/troubleshooting 
                          sample=500,
                          thin=100)
   # Save summary statistics
-  summary_stats_WT<-summary(results_WT)
+  summary_stats_WT2<-summary(results_WT2)
   
   # Save model outputs and results for later analysis
   # Generates file name based on group
-  output_filename = "M1_params_WT.RData"
+  output_filename = "M1_params_HE.RData"
   output_filepath = output_path / output_filename
-  save(results_WT,Data_WT,summary_stats_WT, file=output_filepath) 
+  save(results_WT2,Data_WT_attempt2,summary_stats_WT2, file=output_filepath) 
 
   
 #_______________________________________________________________________________
