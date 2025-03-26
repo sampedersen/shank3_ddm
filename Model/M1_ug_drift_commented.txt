@@ -1,61 +1,139 @@
+# ============================
+# HIERARCHICAL DRIFT DIFFUSION MODEL (HDDM)
+# ============================
+
+# Model structure follows a hierarchical Bayesian approach:
+# 1. Hyperparameters (group-level priors)
+#   - Describes group-wide distributions for parameters within a broader population trend 
+#   - Variability in the drift-rate is subject-specific and depends on two hyperparameters
+#       - mean drift rate (e.m): controls average drift rate across all trials 
+#       - standard deviation (e.d): controld how much  drift rate fluctuates across trials 
+# 2. Subject-level parameters (individual variations)
+# 3. Trial-level likelihood (how decisions unfold per trial)
+
+# Drift rate equation:
+#   w[i] = b1.p[idxP[i]] * offer
+# Modeled after linear regression structure:
+#    Y = BX + e
+# 
+# Y -> w[i] : drift rate for trial i 
+# X -> offer[i] : offer magnitude in trial i 
+# B -> b1.p[idxP[i]] : subject-specific regression weight 
+# e -> e.p.tau[idxP[i]] : error/noise in drift rate 
+
+
 model {
-    # ============================
-    # HIERARCHICAL DRIFT DIFFUSION MODEL (HDDM)
-    # ============================
-    # Model structure follows a hierarchical Bayesian approach:
-    # 1. Hyperparameters (group-level priors)
-    # 2. Subject-level parameters (individual variations)
-    # 3. Trial-level likelihood (how decisions unfold per trial)
-    
     # ----------------------------
     # 1. HYPERPARAMETER PRIORS (GROUP-LEVEL)
     # ----------------------------
     
-    # Regression weight for drift rate (group mean and precision)
+    # ---- Drift Rate Regression Coefficient --------
+    # b1
+    #   - How much the offer cost affects drift rate 
+    #   - b1.mu: expected (aka prior mean) regression weight for how offers influence drift rate 
+    #       - Centered at 0
+    #       - b1 == 0 implies no effect to drift rate
+    #       - b1 < 0 implies higher offers slow decision making 
+    #       - b1 > 0 implies higher offers lead to faster decisions 
+    #   - b1.pr: Controls for precision (inverse of variance) of the regression weight across subjects
+    #       - Controls how much b1.p (participant-level) deviates from b1.mu (group-level)
+    #       - b1.pr follows a Gamma distribution with shape parameter of 1 and rate parameter of 0.1
     b1.mu ~ dnorm(0, 1)       # Prior mean for regression coefficient (centered at 0)
     b1.pr ~ dgamma(1, 0.1)    # Precision (inverse variance) for regression coefficient
     
-    # Mean estimates for DDM parameters (group-level)
-    alpha.mu ~ dunif(0.001, 5) # Boundary separation: required evidence for decision
-    theta.mu ~ dunif(0, 10)    # Non-decision time (e.g., sensory/motor processes)
-    
-    # Precision for DDM parameters
+    # ------- Mean estimates for DDM parameters (group-level) -------
+    # - Utilize uniform distributions to place non-informative / wide-open priors for 
+    #   these parameters (any value within this range is equally likely) 
+    # 
+    # alpha
+    #   - Boundary separation: how much evidence is needed to make a choice 
+    #   - Uniform distribution (0.001, 5)
+    alpha.mu ~ dunif(0.001, 5) 
     alpha.pr ~ dgamma(1, 0.1)  # Precision for boundary separation
+    
+    # theta 
+    #   - Non-decision time: time spent on processes unrelated to decision-making
+    #   - Uniform distribution (0,10)
+    theta.mu ~ dunif(0, 10)    
     theta.pr ~ dgamma(1, 0.1)  # Precision for non-decision time
     
-    # Drift rate variability (hierarchical prior)
-    e.sG <- pow(e.m,2) / pow(e.d,2)  # Shape parameter for gamma distribution
-    e.rG <- e.m / pow(e.d,2)         # Rate parameter for gamma distribution
-    e.m ~ dgamma(1,0.2)T(0.001,20)    # Mean drift rate hyperprior
-    e.d ~ dgamma(1,0.5)T(0.001,20)    # Standard deviation of drift rate hyperprior
-    
     # Start Bias (Initial Decision Preference)
+    #   - average bias value (mu) and precision (bias.kappa)
+    #   - bias.mu and bias.kappa are used to set the alpha and beta parameters of a beta distribution
+    #       - beta distribution is common for modeling probability and proportions
+    #       - shape/skew of beta distribution itself is determined by two parameters (alpha and beta)
+    #       - bias.alpha (alpha parameter) is determined by multiplying mean of the bias (bias.mu)
+    #           by the precision parameter (bias.kappa)
+    #       - bias.beta (beta parameter) is calculated as (1-bias.mu) * bias.kappa to ensure that the sum of 
+    #           bias.alpha + bias.beta will dictate how strong the bias is 
     bias.alpha <- bias.mu * bias.kappa  # Alpha parameter for beta distribution
     bias.beta <- (1 - bias.mu) * bias.kappa  # Beta parameter for beta distribution
+    #   - bias.mu defines the average (mean) of the start bias distribution 
+    #       - follows a Beta distribution with shape parameters of 2 and 2 
+    #       - symmetric around 0.5; initial bias will tend to favor neither side 
+    #       - Limited to 0.01 or 0.99 
     bias.mu ~ dbeta(2, 2)T(0.01,0.99)  # Mean of starting bias (restricted 0.01-0.99)
     bias.kappa ~ dgamma(1, 0.5)        # Precision of bias distribution
+
+
+    # Drift rate variability (hierarchical prior)
+    # - Variability in the drift rate across trials, with hierarchical modeling 
+    # - Introduces hyperprior to the drift rate at the subject level to account for trial-by-
+    #   trial variability in drift rate 
+    # - Use a Gamma distribution to specify variability in the drift rate
+    # - Set priors on the mean and standard deviation of the drift rate 
     
+    # - e.sG 
+    #   - shape parameter of Gamma distribution
+    #   - computed using the mean (e.m) and standard deviation (e.d) of the drift rate hyperior 
+    #       - (e.m)^2 / (e.d)^2
+    
+    # - e.rG
+    #   - rate parameter of Gamma distribution 
+    #   - computed using the ratio of e.m to the square of e.d 
+    #       - (e.m) / (e.d)^2
+    #   - Controls the rate of the Gamma distribution to concentrate the probability mass around the mean 
+    e.sG <- pow(e.m,2) / pow(e.d,2)  # Shape parameter for gamma distribution
+    e.rG <- e.m / pow(e.d,2)         # Rate parameter for gamma distribution
+    
+    
+    # - e.m 
+    #   - mean drift rate hyperior
+    #       - 
+    #   - Modeled using a Gamma distribution with a shape parameter of 1 and rate parameter of 0.2 
+    #   - T(0.001, 20) ensures the mean drift rate is bounded between these values
+    #
+    # - e.d 
+    #   - Standard deviation (variability) of drift rate hyperprior
+    #   - Modeled using Gamma distribution with shape parameter of 1, rate parameter 0.5
+    #   - Standard deviation bound between 0.001 and 20 to ensure reasonable range 
+    e.m ~ dgamma(1,0.2)T(0.001,20)    # Mean drift rate hyperprior
+    e.d ~ dgamma(1,0.5)T(0.001,20)    # Standard deviation of drift rate hyperprior
+        
     # ----------------------------
     # 2. SUBJECT-LEVEL PARAMETERS
+    #
+    #   - Each subject have their own values for parameters, which are drawn from the group distributions 
+    #   - Per each subject exists:
+    #       - b1.p[p]: how much offers influence the drift rate for that subject 
+    #       - alpha.p[p]: subject-specific decision boundary 
+    #       - theta.p[p]: subject-specific non-decision time 
+    #       - bias.p[p]: subject-specific decision-bias 
+    #           - Utilizes alpha and beta parameters to generate beta distribution 
     # ----------------------------
     
-    for (p in 1:ns) {  # Loop over subjects
-        
-        # Subject-specific regression weight for drift rate
+    for (p in 1:ns) {  # Loop over subjects        
+        # Drift rate 
         b1.p[p] ~ dnorm(b1.mu, b1.pr)
-        
-        # Subject-specific boundary separation
+        # Boundary separation 
         alpha.p[p] ~ dnorm(alpha.mu, alpha.pr)
-        
-        # Subject-specific non-decision time
+        # Non-decision time 
         theta.p[p] ~ dnorm(theta.mu, theta.pr)
-        
-        # Subject-specific variability in drift rate
-        e.p.tau[p] ~ dgamma(e.sG, e.rG)T(0.001,20)
-        
-        # Subject-specific starting bias
+        # Bias 
         bias.p[p] ~ dbeta(bias.alpha, bias.beta)T(0.01,0.99)
-    }
+        # Variability in drift rate ( aka noise )
+        e.p.tau[p] ~ dgamma(e.sG, e.rG)T(0.001,20)
+}
     
     # ----------------------------
     # 3. TRIAL-LEVEL LIKELIHOOD
