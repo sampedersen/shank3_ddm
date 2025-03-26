@@ -11,15 +11,7 @@
 # 2. Subject-level parameters (individual variations)
 # 3. Trial-level likelihood (how decisions unfold per trial)
 
-# Drift rate equation:
-#   w[i] = b1.p[idxP[i]] * offer
-# Modeled after linear regression structure:
-#    Y = BX + e
-# 
-# Y -> w[i] : drift rate for trial i 
-# X -> offer[i] : offer magnitude in trial i 
-# B -> b1.p[idxP[i]] : subject-specific regression weight 
-# e -> e.p.tau[idxP[i]] : error/noise in drift rate 
+
 
 
 model {
@@ -137,6 +129,33 @@ model {
     
     # ----------------------------
     # 3. TRIAL-LEVEL LIKELIHOOD
+    #   - for each trial i, generate the observed RT and decision 
+    #   - Follow a Wiener diffusion process to generate the observed response time y[i] using parameters,
+        where each parameter is taken from the respective subject's parameters 
+    #       - bound[i] : decision threshold 
+    #           - alpha.p[idxP[i]] (boundary for this subject, on this trial)
+    #       - tau[i] : non-decision time 
+    #           - theta.p[idxP[i]] (non-decision time for this subject, on this trial)
+    #       - bet[i] : initial bias 
+    #           - bias.p[idxP[i]] (starting bias for this subject, on this trial)
+    #       - w[i] : drift rate 
+    #           - actual drift rate of the trial, drawn from a normal distribution that is centered at 
+    #               li.hat[i] with added noise, e.p.tau[idxP[i]]
+    #               - w[i] ~ dnorm(li.hat[i], e.p.tau[idxP[[i]]])
+    #               - Essentially equates to: 
+    #                   - w[i] = b1.p[idxP[[i]]] * offer[i] + noise 
+    #               - Where noise is e.p.tau[idxP[[i]]], the drift rate variability 
+    #           - Where li.hat[i] follows: 
+    #               - li.hat[i] = b1.p[idxP[i]] * offer[i]
+    #               - Follows format of Y = Bx + e, where: 
+    #                    - Y -> w[i] : drift rate for trial i 
+    #                    - X -> offer[i] : offer magnitude in trial i 
+    #                    - B -> b1.p[idxP[i]] : subject-specific regression weight 
+    #                    - e -> e.p.tau[idxP[i]] : error/noise in drift rate 
+    #   - Generate predictions by stimulating choice and RTs and output y_pred[i] for that trial 
+    #       - y_pred[i] ~ dwiener(bound[i], tau[i], bet[i], w[i])
+    #   
+
     # ----------------------------
     
     for (i in 1:N) {  # Loop over trials
