@@ -372,35 +372,53 @@ Data_WT_attempt2 = df %>%
   
 
 ################################################################################
-# Check diagnostics
+# Check convergence of MCMC chains 
+  # Check using the Potential Scale Reduction Factor (PSRF) 
+  # - PSRF < 1.1 generally acceptable indication of chain convergence 
+  # - PSRF > 1.1 generally indicates lack of proper convergence and requires either
+  #     more sample or burn-in 
+# Note: These were hard coded; need to double check and see what the outputs are
+  #   each saved as and add proper naming 
 
-# Load and check BD group 
-gg = "BD";
-load(file = output_path /  paste0("M1_Params_",gg,".RData"))
-suuum %>% as.data.frame() %>%     # Evaluate chain convergence 
+  
+# Load and check WT group 
+gg = "WT"   
+load(file = output_filepath)
+summary_stats_WT2 %>% as.data.frame() %>%     # Evaluate chain convergence 
   filter(psrf > 1.1)              # Value should be <1.1 for all params
 
-# Load and check HC group 
-gg = "HC"
+# Load and check HE group (***DOUBLE CHECK NAMING CONVENTIONS)
+gg = "HE"
 load(file = output_path / paste0("M1_Params_",gg,".RData"))
-suuum %>% as.data.frame() %>%
+summary_stats_HE2 %>% as.data.frame() %>%
   filter(psrf > 1.1)
 
-## Note: if any parameters have a convergence greater than 1.1, 
-##    rerun with more burn-in
-
 ################################################################################
-# Extract & analyze parameters
+# Extract, analyze, & compare parameters
+
+# Initialize params in an empty dataframe 
 params = NULL
 
-for (gg in c("BD", "HC")) {
+# Loop through the two group, WT and HE 
+for (gg in c("WT", "HE")) {
     # Merge MCMC chains
+    # For each group, load the MCMC chain results 
     load(file = output_path / paste0("M1_Params_",gg,".RData"))
+    # Combine the MCMC chains from the three different chains stored within the results 
+    # rbind() stacks the results from the three chains into a single dataframe/matrix 
     chain=rbind(results$mcmc[[1]], results$mcmc[[2]], results$mcmc[[3]])
+    # Pull unique subject IDs 
     subj = unique(Data$idxP)
     
+    # Loop through each subject 
     for (s in subj){
+      # For each subject, extract mouse's data from Data object 
       subj_idx = unique(Data$subj_idx[Data$idxP == s])
+      # Extract the parameters for each subject from the chain 
+      # Parameters include regression weight for drift rate, boundary separation, 
+      #   non-decision time, starting bias 
+      # Calculate the parameters as an average across the MCMC chains 
+      # Store parameters in a temporary dataframe (tmp_res) 
       tmp_res = data.frame(
         idxP = s,
         subj_idx = subj_idx,
@@ -414,23 +432,47 @@ for (gg in c("BD", "HC")) {
     }
 }
 
-# Perform t-tests to compare parameters across groups 
+# Within Groups t-tests (Pairwise Comparisons)
 params %>%
+  # Reshape the dataframe to long format 
+  # Transforms the columns into a single column (name) and corresponding value 
+  #   in adjacent column (value)
   pivot_longer(cols = c(wOffer,boundary,nDT,bias)) %>%
+  # Group the data by their group (WT or HE) and the parameter name (wOffer, boundary, etc)
   group_by(group,name) %>%
+  # Compute a paired t-test to compare parameter values between two sessions,
+  #   store the tvalue and pvalue of t-test 
   summarise(tvalue = t.test(value ~ session, paired = TRUE)$statistic,
             pvalue = t.test(value ~ session, paired = TRUE)$p.value) %>%
-  filter(pvalue < .05)
+  # Only show parameters where p-value is less than 0.05 (indicates significant 
+  #     differences between sessions for those parameters)
+  filter(pvalue < .05)  
+        
+# Between Groups t-test (Between-Group Comparison)
+# Compare parameter values between groups (WT and HE) across sessions, rather than 
+#     within a session 
 params %>%
+  # Make into a long format
   pivot_longer(cols = c(wOffer,boundary,nDT,bias)) %>%
-  mutate(group = factor(group, levels = c("HC","BD"))) %>%
+  # Mutate to turn the groups into factors with two levels (WT, HE)
+  mutate(group = factor(group, levels = c("WT","HE"))) %>%
+  # Group by session and parameter name 
   group_by(session,name) %>%
+  # Compute t-test to compare values of each parameter between groups for each session
   summarise(tvalue = t.test(value ~ group)$statistic,
             pvalue = t.test(value ~ group)$p.value) %>%
+  # Only show parameters where p-value is less than 0.05 (indicates significant 
+  #     differences between groups for each session for those parameters)
   filter(pvalue < .05)
 
+# One-way ANOVA for between-group comparison (Post-Hoc Tukey Test)
+# Perform one-way ANOVA on wOffer parameter to test is there are differences between
+#   the two groups 
 summary(aov(data = params,
             formula = wOffer ~ group))
+# If the ANOVA shows significant differences between groups, Tukey Honestly 
+#   Significant Difference (HSD) post-hoc test identifies which specific groups are 
+#   significantly different from each other 
 TukeyHSD(aov(data = params,
              formula = wOffer ~ group),which = "group")
 
