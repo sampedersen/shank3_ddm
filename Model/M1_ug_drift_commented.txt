@@ -1,0 +1,88 @@
+model {
+    # ============================
+    # HIERARCHICAL DRIFT DIFFUSION MODEL (HDDM)
+    # ============================
+    # Model structure follows a hierarchical Bayesian approach:
+    # 1. Hyperparameters (group-level priors)
+    # 2. Subject-level parameters (individual variations)
+    # 3. Trial-level likelihood (how decisions unfold per trial)
+    
+    # ----------------------------
+    # 1. HYPERPARAMETER PRIORS (GROUP-LEVEL)
+    # ----------------------------
+    
+    # Regression weight for drift rate (group mean and precision)
+    b1.mu ~ dnorm(0, 1)       # Prior mean for regression coefficient (centered at 0)
+    b1.pr ~ dgamma(1, 0.1)    # Precision (inverse variance) for regression coefficient
+    
+    # Mean estimates for DDM parameters (group-level)
+    alpha.mu ~ dunif(0.001, 5) # Boundary separation: required evidence for decision
+    theta.mu ~ dunif(0, 10)    # Non-decision time (e.g., sensory/motor processes)
+    
+    # Precision for DDM parameters
+    alpha.pr ~ dgamma(1, 0.1)  # Precision for boundary separation
+    theta.pr ~ dgamma(1, 0.1)  # Precision for non-decision time
+    
+    # Drift rate variability (hierarchical prior)
+    e.sG <- pow(e.m,2) / pow(e.d,2)  # Shape parameter for gamma distribution
+    e.rG <- e.m / pow(e.d,2)         # Rate parameter for gamma distribution
+    e.m ~ dgamma(1,0.2)T(0.001,20)    # Mean drift rate hyperprior
+    e.d ~ dgamma(1,0.5)T(0.001,20)    # Standard deviation of drift rate hyperprior
+    
+    # Start Bias (Initial Decision Preference)
+    bias.alpha <- bias.mu * bias.kappa  # Alpha parameter for beta distribution
+    bias.beta <- (1 - bias.mu) * bias.kappa  # Beta parameter for beta distribution
+    bias.mu ~ dbeta(2, 2)T(0.01,0.99)  # Mean of starting bias (restricted 0.01-0.99)
+    bias.kappa ~ dgamma(1, 0.5)        # Precision of bias distribution
+    
+    # ----------------------------
+    # 2. SUBJECT-LEVEL PARAMETERS
+    # ----------------------------
+    
+    for (p in 1:ns) {  # Loop over subjects
+        
+        # Subject-specific regression weight for drift rate
+        b1.p[p] ~ dnorm(b1.mu, b1.pr)
+        
+        # Subject-specific boundary separation
+        alpha.p[p] ~ dnorm(alpha.mu, alpha.pr)
+        
+        # Subject-specific non-decision time
+        theta.p[p] ~ dnorm(theta.mu, theta.pr)
+        
+        # Subject-specific variability in drift rate
+        e.p.tau[p] ~ dgamma(e.sG, e.rG)T(0.001,20)
+        
+        # Subject-specific starting bias
+        bias.p[p] ~ dbeta(bias.alpha, bias.beta)T(0.01,0.99)
+    }
+    
+    # ----------------------------
+    # 3. TRIAL-LEVEL LIKELIHOOD
+    # ----------------------------
+    
+    for (i in 1:N) {  # Loop over trials
+        
+        # Observed response time (RT) follows Wiener diffusion process
+        y[i] ~ dwiener(bound[i], tau[i], bet[i], w[i])
+        
+        # Generate predictions (posterior predictive check)
+        y_pred[i] ~ dwiener(bound[i], tau[i], bet[i], w[i])
+        
+        # Trial-by-trial boundary separation
+        bound[i] <- alpha.p[idxP[i]]
+        
+        # Trial-by-trial non-decision time
+        tau[i] <- theta.p[idxP[i]]  # Extract from subject-level parameters
+        dT[i] <- rt[i] - tau[i]     # Compute decision time by subtracting nDT
+        
+        # Trial-by-trial starting bias
+        bet[i] <- bias.p[idxP[i]]
+        
+        # Drift rate (decision evidence accumulation)
+        w[i] ~ dnorm(li.hat[i], e.p.tau[idxP[i]])  # Variability across trials
+        
+        # Linear regression for drift rate as a function of offer magnitude
+        li.hat[i] <- b1.p[idxP[i]] * offer[i]
+    }
+}
