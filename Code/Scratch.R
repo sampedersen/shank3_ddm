@@ -155,3 +155,56 @@ denplot(par.re.sim, collapse=T)
 
 stopCluster(cl)
 
+
+
+
+##################################################################################
+# Come back to this: quality check model 
+# Load necessary libraries
+library(arm)
+library(rjags)
+library(coda)
+library(mcmcplots)
+load("~/Sinai/Sweis Lab/Projects/Shank3/Outputs/Run1/M1_params_WT - Copy.RData")
+
+# Step 3: MCMC Diagnostics - Check convergence and autocorrelation
+# Geweke diagnostic: Assesses convergence by comparing means of the beginning and end parts of the chain
+geweke_diag <- geweke.diag(results_WT)
+print(geweke_diag)
+
+# Heidelberger & Welch diagnostic: Tests stationarity and convergence
+heidel_diag <- heidel.diag(as.mcmc(results_WT))
+print(heidel_diag)
+
+# Raftery & Lewis diagnostic: Tests for the number of iterations required to obtain accurate results
+raftery_diag <- raftery.diag(as.mcmc(results_WT))
+print(raftery_diag)
+
+# Summary of the MCMC results
+summary_stats_WT2 <- summary(results_WT)
+print(summary_stats_WT2)
+
+# Step 4: Visualizations using 'mcmcplots' package
+# Traceplot to visualize chains
+mcmcplot(results_WT, dir = getwd())
+
+# Density plot for each parameter
+denplot(results_WT)
+
+# Caterplot for alpha and beta (boundary separation and drift rate)
+caterplot(results_WT, c("alpha.mu", "b1.mu"), val.lim = c(-1, 6))
+
+# Add vertical lines at specific values for reference
+abline(v = 0., lty = 2)
+
+output_path = "C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank3/Outputs"
+
+# Optional: Save the visualizations to files
+output_filepath <- file.path(output_path, "M1_params_WT_plots.png")
+png(output_filepath)
+mcmcplot(results_WT, dir = getwd())
+dev.off()
+
+# Step 5: Save results and model outputs
+save(results_WT, Data_WT_attempt2, summary_stats_WT2, file = output_filepath)
+
