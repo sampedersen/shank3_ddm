@@ -1,0 +1,202 @@
+---- FS RUN 1 <IN PROGRESS>----
+Updated 3/26/2025 5:24PM
+WILDTYPE 
+	Core Allowed: 6
+	PARAMS (INITIAL)
+		- Alpha: 2, pr = 0.5
+		- Theta: 0.20, pr=0.005
+		- Drift rate: 0.16, pr=0.1
+		- Bias = 0.52, pr=0.1
+		- RNG: Super-Duper
+		- RNG Seed: 67882
+	MODEL INITIALIZATION
+		- Model 1: M1_ug_drift.txt
+		- 6 chains
+		- Burn-in = 4,000
+		- Sample = 7,000
+		- Thin = 10
+	OUTPUT FORMATTING
+		- Data = Data_WT_attempt2 (environment variable) 
+		- Output = 
+		- Location: C:\Users\Feede\Documents\Sam_Temp\Shank3\Outputs
+	STATUS
+Calling the simulation using the parallel method...
+Following the progress of chain 1 (the program will wait for all chains to finish before continuing):
+Welcome to JAGS 4.3.1 on Tue Mar 25 18:19:50 2025
+JAGS is free software and comes with ABSOLUTELY NO WARRANTY
+Loading module: basemod: ok
+Loading module: bugs: ok
+. Loading module: wiener: ok
+. Loading module: dic: ok
+. . Reading data file data.txt
+. Compiling model graph
+   Resolving undeclared variables
+   Allocating nodes
+Graph information:
+   Observed stochastic nodes: 85113
+   Unobserved stochastic nodes: 170241
+   Total graph size: 520885
+. Reading parameter file inits1.txt
+. Initializing model
+. Adapting 1000
+-------------------------------------------------| 1000
+++++++++++++++++++++++++++++++++++++++++++++++++++ 100%
+Adaptation successful
+. Updating 4000
+-------------------------------------------------| 4000
+************************************************** 100%
+. . . . . . . . . . Updating 70000
+-------------------------------------------------| 70000
+***************************************
+		
+		
+
+HETEROZYGOTES
+	Core Allowed: 6
+	PARAMS (INITIAL)
+		- Alpha: 2, pr = 0.5
+		- Theta: 0.20, pr=0.005
+		- Drift rate: 0.16, pr=0.1
+		- Bias = 0.52, pr=0.1
+		- RNG: Super-Duper
+		- RNG Seed: 67882
+	MODEL INITIALIZATION
+		- Model 1: M1_ug_drift.txt
+		- 6 chains
+		- Burn-in = 4,000
+		- Sample = 7,000
+		- Thin = 10
+	OUTPUT FORMATTING
+		- Data = Data_HE_attempt2 (environment variable) 
+		- Output = 
+		- Location: C:\Users\Feede\Documents\Sam_Temp\Shank3\Outputs
+	STATUS
+Calling the simulation using the parallel method...
+Following the progress of chain 1 (the program will wait for all chains to finish before continuing):
+Welcome to JAGS 4.3.1 on Tue Mar 25 18:23:15 2025
+JAGS is free software and comes with ABSOLUTELY NO WARRANTY
+Loading module: basemod: ok
+Loading module: bugs: ok
+. Loading module: wiener: ok
+. Loading module: dic: ok
+. . Reading data file data.txt
+. Compiling model graph
+   Resolving undeclared variables
+   Allocating nodes
+Graph information:
+   Observed stochastic nodes: 81001
+   Unobserved stochastic nodes: 162017
+   Total graph size: 495786
+. Reading parameter file inits1.txt
+. Initializing model
+. Adapting 1000
+-------------------------------------------------| 1000
+++++++++++++++++++++++++++++++++++++++++++++++++++ 100%
+Adaptation successful
+. Updating 4000
+-------------------------------------------------| 4000
+************************************************** 100%
+. . . . . . . . . . Updating 70000
+-------------------------------------------------| 70000
+******************************************
+
+--------------------------------------------------------------------------------------
+
+---- FS RUN 2 <IN PROGRESS>----
+Updated 3/26/2025 5:22 PM 
+Notes: 
+	- Adaptation and first set of updating goes by quickly (<6h)
+	- Updating for second time has taken way too long (>12h) 
+	- Need to maybe consider increasing thinning step 
+WILDTYPE 
+	Core Allowed: 8
+	PARAMS (INITIAL)
+		- Alpha: 2, pr = 0.5
+		- Theta: 0.20, pr=0.005
+		- Drift rate: 0.16, pr=0.1
+		- Bias = 0.52, pr=0.1
+		- RNG: "Mersenne-Twister"
+		- RNG Seed: 67882
+	MODEL INITIALIZATION
+		- Model 1: M1_ug_drift.txt
+		- 8 chains
+		- Burn-in = 4,000
+		- Sample = 5,000
+		- Thin = 300
+	OUTPUT FORMATTING
+		- Data = Data_WT_attempt3 (environment variable) 
+		- Output = 
+		- Location: C:\Users\Feede\Documents\Sam_Temp\Shank3\Outputs
+	STATUS
+Calling the simulation using the parallel
+method...
+Following the progress of chain 1 (the program
+will wait for all chains to finish before
+continuing):
+Welcome to JAGS 4.3.1 on Wed Mar 26 17:06:27 2025
+JAGS is free software and comes with ABSOLUTELY NO WARRANTY
+Loading module: basemod: ok
+Loading module: bugs: ok
+. Loading module: wiener: ok
+. Loading module: dic: ok
+. . Reading data file data.txt
+. Compiling model graph
+   Resolving undeclared variables
+   Allocating nodes
+Graph information:
+   Observed stochastic nodes: 85113
+   Unobserved stochastic nodes: 170241
+   Total graph size: 520885
+. Reading parameter file inits1.txt
+. Initializing model
+. Adapting 1000
+-------------------------------------------------| 1000
++++++++++++++++++++++++++++++++++++++
+
+HETEROZYGOTES
+	Core Allowed: 8
+	PARAMS (INITIAL)
+		- Alpha: 2, pr = 0.5
+		- Theta: 0.20, pr=0.005
+		- Drift rate: 0.16, pr=0.1
+		- Bias = 0.52, pr=0.1
+		- RNG: "Mersenne-Twister"
+		- RNG Seed: 67882
+	MODEL INITIALIZATION
+		- Model 1: M1_ug_drift.txt
+		- 8 chains
+		- Burn-in = 4,000
+		- Sample = 5,000
+		- Thin = 30
+	OUTPUT FORMATTING
+		- Data = Data_HE_attempt3 (environment variable) 
+		- Output = 
+		- Location: C:\Users\Feede\Documents\Sam_Temp\Shank3\Outputs
+	STATUS
+Calling the simulation using the parallel
+method...
+Following the progress of chain 1 (the program
+will wait for all chains to finish before
+continuing):
+Welcome to JAGS 4.3.1 on Wed Mar 26 17:14:36 2025
+JAGS is free software and comes with ABSOLUTELY NO WARRANTY
+Loading module: basemod: ok
+Loading module: bugs: ok
+. Loading module: wiener: ok
+. Loading module: dic: ok
+. . Reading data file data.txt
+. Compiling model graph
+   Resolving undeclared variables
+   Allocating nodes
+Graph information:
+   Observed stochastic nodes: 81001
+   Unobserved stochastic nodes: 162017
+   Total graph size: 495786
+. Reading parameter file inits1.txt
+. Initializing model
+. Adapting 1000
+-------------------------------------------------| 1000
+++++++++++++++++++++++
+	
+
+
