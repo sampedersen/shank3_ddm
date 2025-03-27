@@ -208,3 +208,31 @@ dev.off()
 # Step 5: Save results and model outputs
 save(results_WT, Data_WT_attempt2, summary_stats_WT2, file = output_filepath)
 
+
+
+##############################################################
+# Come back to: Save settings 
+group = "WT"
+run = "R1"
+device = "BM"
+if (device == "FS") { 
+  output_dir = path("C:/Users/Feede/Documents/Sam_Temp/Shank3/Outputs/FS_Outputs")
+}  else { 
+  output_dir = path("C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank3/Outputs/BM_Outputs")
+}
+name <- paste0(device, "_", group, "_", run)
+filename <- paste0(name,".RData")
+save_as <- path(paste0(output_dir,"/",filename))
+
+# Save files 
+Dataset <- Data_WT
+Results <- results_WT
+SummaryStats <- summary_stats_WT
+save(Dataset, Results, SummaryStats, file = save_as)
+
+
+# Variables to save: 
+# Data_WT_attempt2
+# results_WTs
+# summary_stats_WT2
+
