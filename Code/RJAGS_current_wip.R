@@ -23,6 +23,8 @@
 #_______________________________________________________________________________
 #====================== 1. Set up environment  =================================
 #_______________________________________________________________________________
+
+
 # Clear objects from environment 
 rm(list = ls())
 # Set random seed for reproducibility
@@ -54,6 +56,60 @@ RcppParallel::setThreadOptions(numThreads = 15)
 #' se(c(1, 2, 3, 4, 5))
 se <- function(x) {
   sd(x) / sqrt(length(x))}
+
+
+
+
+# Settings
+
+# Identify the device 
+Device = "BM"     # Select this option for BeastMode (Sam's PC)
+# Device = "FS    # Select this option for FeederScav (Lab PC) 
+
+# Condition 
+Condition = "HE"  # Hets
+# Condition = "WT" # Wildtypes 
+
+# Attempt Date
+Attempt_Date = "Apr02"
+
+# Attempt Number 
+Attempt_Num = 1
+
+# Initial parameters 
+
+# Initial parameters 1:
+inits1 <- dump.format(list(
+  alpha.mu=2, alpha.pr=.5,            # Alpha
+  theta.mu=0.200, theta.pr=0.005,     # Theta
+  b1.mu=0.16, b1.pr=0.1,              # Drift rate
+  bias.mu=0.52, bias.kappa=.5,        # Bias
+  y_pred=y,                           # RT values
+  .RNG.name="base::Super-Duper",      # Random Number Generator
+  .RNG.seed=67882))                   # Seed selected 
+
+# Initial parameters 2: 
+inits2 <- dump.format(list(
+  alpha.mu=2.5, alpha.pr=0.1, 
+  theta.mu=0.2,theta.pr=0.05, 
+  b1.mu=0.0, b1.pr=0.01, 
+  bias.mu=0.5,bias.kappa=1, 
+  y_pred=y,  
+  .RNG.name="base::Wichmann-Hill", 
+  .RNG.seed=1234))
+
+# Initial parameters 3: 
+inits3 <- dump.format(list(
+  alpha.mu=2.0, alpha.pr=0.1, 
+  theta.mu=0.3, theta.pr=0.05, 
+  b1.mu=-0.1, b1.pr=0.01, 
+  bias.mu=0.6,bias.kappa=1, 
+  y_pred=y, 
+  .RNG.name="base::Mersenne-Twister", 
+  .RNG.seed=6666 ))
+
+
+
 
 #_______________________________________________________________________________
 #=============== 2. Set up directory paths & import data =======================
