@@ -23,8 +23,6 @@
 #_______________________________________________________________________________
 #====================== 1. Set up environment  =================================
 #_______________________________________________________________________________
-
-
 # Clear objects from environment 
 rm(list = ls())
 # Set random seed for reproducibility
@@ -41,13 +39,6 @@ if(length(new_packages)) install.packages(new_packages)
 # Load required packaged (suppress start-up messages) 
 suppressPackageStartupMessages(lapply(pack, require, character.only = TRUE))
 
-# Limit core usage for parallel processing 
-# Note: my system supports 20 cores; try bumping the core limit incrementally (SP; 3/20/25) 
-RcppParallel::setThreadOptions(numThreads = 1)
-RcppParallel::setThreadOptions(numThreads = 15)
-# RcppParallel::setThreadOptions(numThreads = 2)
-# RcppParallel::setThreadOptions(numThreads = 4)
-
 #' Define helper function for standard error (se)
 #' @param x A numeric vector for which the standard error is to be computed.
 #' @return A numeric value representing the standard error of the input vector.
@@ -58,25 +49,22 @@ se <- function(x) {
   sd(x) / sqrt(length(x))}
 
 
-
-
-# Settings
-
+#_______________________________________________________________________________
+#====================== 1a. User-Defined Settings ==============================
+#_______________________________________________________________________________
 # Identify the device 
-Device = "BM"     # Select this option for BeastMode (Sam's PC)
-# Device = "FS    # Select this option for FeederScav (Lab PC) 
-
+Device = "BM"     # BM or FS 
 # Condition 
-Condition = "HE"  # Hets
-# Condition = "WT" # Wildtypes 
-
+Condition = "HE"  # HE or WT 
 # Attempt Date
 Attempt_Date = "Apr02"
-
 # Attempt Number 
 Attempt_Num = 1
 
-# Initial parameters 
+# Model Settings 
+BurnIn = 10
+Sample = 50
+Thinning = 100
 
 # Initial parameters 1:
 inits1 <- dump.format(list(
@@ -90,9 +78,9 @@ inits1 <- dump.format(list(
 
 # Initial parameters 2: 
 inits2 <- dump.format(list(
-  alpha.mu=2.5, alpha.pr=0.1, 
-  theta.mu=0.2,theta.pr=0.05, 
-  b1.mu=0.0, b1.pr=0.01, 
+  alpha.mu=2.5, alpha.pr=0.1,         # Alpha 
+  theta.mu=0.2,theta.pr=0.05,         # Theta 
+  b1.mu=0.0, b1.pr=0.01,              # Drift rate 
   bias.mu=0.5,bias.kappa=1, 
   y_pred=y,  
   .RNG.name="base::Wichmann-Hill", 
@@ -108,16 +96,24 @@ inits3 <- dump.format(list(
   .RNG.name="base::Mersenne-Twister", 
   .RNG.seed=6666 ))
 
-
-
-
 #_______________________________________________________________________________
 #=============== 2. Set up directory paths & import data =======================
 #_______________________________________________________________________________
+
+if (Device == "BM"){
+  home_dir = path("C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank3")
+  num_cores <- detectCores(logical=TRUE)
+  dedicated_cores <- round((num_cores-1.5)/2)
+} else {
+  home_dir = path("C:/Users/Feede/Documents/Sam_Temp/Shank3")
+  num_cores <- detectCores(logical=TRUE)
+  dedicated_cores <- round((num_cores-1.5)/2)
+}
+
+# Limit core usage for parallel processing 
+RcppParallel::setThreadOptions(numThreads = dedicated_cores)
+
 # Set up paths 
-# Note: edit this when user-deployed (SP 3/20/25)
-# Note: future implementation: route to online-hosted dataset for fixed pathways (SP 3/20/25) 
-home_dir = path("C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank3")
 data_path = home_dir / "Data"
 model_path = home_dir / "Model"
 output_path = home_dir / "Outputs"
@@ -125,9 +121,8 @@ code_path = home_dir / "Code"
 
 # Load data
 # Note: edit this section depending on how the data is stored 
-data_filename = "Epoch4_Mid-to-Late_DDM_Data.xlsx"     # Change this to be the name+ext of data file  
-data_filepath = data_path / data_filename             # Don't change this 
-#df_raw = read.csv(data_filepath)                     # use this for .csv
+data_filename = "Epoch4_Mid-to-Late_DDM_Data.xlsx"     
+data_filepath = file.path(data_path, data_filename)    
 df_raw = read_excel(data_filepath)                    # use this for .xlsx
 
 #_______________________________________________________________________________
@@ -237,16 +232,24 @@ df <- train_data
 # Note: Uses Model 1 (no drift intercept)
 
 # 4a. Prepare data for WT group ------------------------------------------------
-Data_WT_attempt2 = df %>%
-  filter(group=="WT") %>%                     # Filter for WT group only 
-  mutate(idxP=as.numeric(ordered(subj_idx)))  # Convert participant IDs into indices 
 
-  idxP = Data_WT_attempt2$idxP         # Sequentially numbered list of subject indices 
-  offer = Data_WT_attempt2$offer       # Pull offers 
-  rtpos = Data_WT_attempt2$rt          # Pull RTs (original, non-signed)
+if(Condition == "HE"){
+  Data = df %>%
+    filter(group=="HE") %>%
+    mutate(idxP=as.numeric(ordered(subj_idx)))
+} else {
+  Data = df %>%
+    filter(group=="WT") %>%
+    mutate(idxP=as.numeric(ordered(subj_idx)))
+}
+
+Data = Data %>%
+  idxP = Data$idxP         # Sequentially numbered list of subject indices 
+  offer = Data$offer       # Pull offers 
+  rtpos = Data$rt          # Pull RTs (original, non-signed)
   
   # Modeling variables
-  y=Data_WT_attempt2$RT                # Signed RT values (to be predicted) 
+  y=Data$RT                # Signed RT values (to be predicted) 
   N= length(y)                # Number of total trials 
   ns=length(unique(idxP))     # number of subjects 
   
@@ -290,24 +293,6 @@ Data_WT_attempt2 = df %>%
 #         - inits2 - Wichmann-Hill
 #         - inits1 - Mersenne-Twister
 #       - .RNG.seed - random seed (99999) for reproducibility 
-  
-  # Selected parameters for init3 (current attempt)
-  inits3 <- dump.format(list(alpha.mu=2, alpha.pr=.5,          # Alpha
-                             theta.mu=0.200, theta.pr=0.005,     # Theta
-                             b1.mu=0.16, b1.pr=0.1,            # Drift rate
-                             bias.mu=0.52, bias.kappa=.5,         # Bias
-                             y_pred=y,                          # RT values
-                             .RNG.name="base::Super-Duper",     # Random Number Generator
-                             .RNG.seed=67882))                  # Seed selected 
-
-  # Selected parameters for init2 (not currently in use)
-  inits2 <- dump.format(list(alpha.mu=2.5, alpha.pr=0.1, theta.mu=0.2,
-                             theta.pr=0.05, b1.mu=0.0, b1.pr=0.01, bias.mu=0.5,
-                             bias.kappa=1, y_pred=y,  .RNG.name="base::Wichmann-Hill", .RNG.seed=1234))
-  # Selected parameters for init2 (not currently in use)
-  inits1 <- dump.format(list(alpha.mu=2.0, alpha.pr=0.1, theta.mu=0.3,
-                             theta.pr=0.05, b1.mu=-0.1, b1.pr=0.01, bias.mu=0.6,
-                             bias.kappa=1, y_pred=y, .RNG.name="base::Mersenne-Twister", .RNG.seed=6666 ))
     
   # Specify model parameters to monitor 
   #     - Deviance = how well the model fits the data (minimize as much as possible)
@@ -331,6 +316,15 @@ Data_WT_attempt2 = df %>%
   #     - Thin: Sampling frequency for reducing auto-correlations
   #           - Increasing is faster/poorer convergence, decreasing is more stable/slower 
   #           - Keeping every 20th iteration, vs every 10th iteration 
+  
+  Results <- run.jags(model = file.path(model_path,"M1_ug_drift.txt"), 
+                      monitor=monitor, data=dat, n.chains=3,
+                      inits=c(inits1,inits2, inits3), 
+                      plots = TRUE, method="parallel", module="wiener",
+                      burnin=2000,
+                      sample=500,
+                      thin=100)
+  
   results_WT2 <- run.jags(model=file.path(model_path,"M1_ug_drift.txt"),
                          monitor=monitor, data=dat, n.chains=3,
                          inits=inits3,
