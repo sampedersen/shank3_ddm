@@ -62,39 +62,13 @@ Attempt_Date = "Apr02"
 Attempt_Num = 1
 
 # Model Settings 
-BurnIn = 10
-Sample = 50
-Thinning = 100
+BurnIn = 1000
+Sample = 2000
+Thinning = 200
+Chains = 2
+temp = 0
 
-# Initial parameters 1:
-inits1 <- dump.format(list(
-  alpha.mu=2, alpha.pr=.5,            # Alpha
-  theta.mu=0.200, theta.pr=0.005,     # Theta
-  b1.mu=0.16, b1.pr=0.1,              # Drift rate
-  bias.mu=0.52, bias.kappa=.5,        # Bias
-  y_pred=y,                           # RT values
-  .RNG.name="base::Super-Duper",      # Random Number Generator
-  .RNG.seed=67882))                   # Seed selected 
 
-# Initial parameters 2: 
-inits2 <- dump.format(list(
-  alpha.mu=2.5, alpha.pr=0.1,         # Alpha 
-  theta.mu=0.2,theta.pr=0.05,         # Theta 
-  b1.mu=0.0, b1.pr=0.01,              # Drift rate 
-  bias.mu=0.5,bias.kappa=1, 
-  y_pred=y,  
-  .RNG.name="base::Wichmann-Hill", 
-  .RNG.seed=1234))
-
-# Initial parameters 3: 
-inits3 <- dump.format(list(
-  alpha.mu=2.0, alpha.pr=0.1, 
-  theta.mu=0.3, theta.pr=0.05, 
-  b1.mu=-0.1, b1.pr=0.01, 
-  bias.mu=0.6,bias.kappa=1, 
-  y_pred=y, 
-  .RNG.name="base::Mersenne-Twister", 
-  .RNG.seed=6666 ))
 
 #_______________________________________________________________________________
 #=============== 2. Set up directory paths & import data =======================
@@ -243,7 +217,7 @@ if(Condition == "HE"){
     mutate(idxP=as.numeric(ordered(subj_idx)))
 }
 
-Data = Data %>%
+Data = Data
   idxP = Data$idxP         # Sequentially numbered list of subject indices 
   offer = Data$offer       # Pull offers 
   rtpos = Data$rt          # Pull RTs (original, non-signed)
@@ -316,7 +290,35 @@ Data = Data %>%
   #     - Thin: Sampling frequency for reducing auto-correlations
   #           - Increasing is faster/poorer convergence, decreasing is more stable/slower 
   #           - Keeping every 20th iteration, vs every 10th iteration 
+  # Initial parameters 1:
+  inits1 <- dump.format(list(
+    alpha.mu=2, alpha.pr=.5,            # Alpha
+    theta.mu=0.200, theta.pr=0.005,     # Theta
+    b1.mu=0.16, b1.pr=0.1,              # Drift rate
+    bias.mu=0.52, bias.kappa=.5,        # Bias
+    y_pred=y,                           # RT values
+    .RNG.name="base::Super-Duper",      # Random Number Generator
+    .RNG.seed=67882))                   # Seed selected 
   
+  # Initial parameters 2: 
+  inits2 <- dump.format(list(
+    alpha.mu=1, alpha.pr=0.5,         # Alpha 
+    theta.mu=0.2,theta.pr=0.005,         # Theta 
+    b1.mu=0.05, b1.pr=0.1,              # Drift rate 
+    bias.mu=0.5,bias.kappa=.5, 
+    y_pred=y,  
+    .RNG.name="base::Wichmann-Hill", 
+    .RNG.seed=1234))
+  
+  # Initial parameters 3: 
+  inits3 <- dump.format(list(
+    alpha.mu=2.5, alpha.pr=0.5, 
+    theta.mu=0.3, theta.pr=0.05, 
+    b1.mu=0.1, b1.pr=0.01, 
+    bias.mu=0.6,bias.kappa=1, 
+    y_pred=y, 
+    .RNG.name="base::Mersenne-Twister", 
+    .RNG.seed=6666))
   Results <- run.jags(model = file.path(model_path,"M1_ug_drift.txt"), 
                       monitor=monitor, data=dat, n.chains=3,
                       inits=c(inits1,inits2, inits3), 
@@ -324,22 +326,13 @@ Data = Data %>%
                       burnin=2000,
                       sample=500,
                       thin=100)
-  
-  results_WT2 <- run.jags(model=file.path(model_path,"M1_ug_drift.txt"),
-                         monitor=monitor, data=dat, n.chains=3,
-                         inits=inits3,
-                         #inits=c(inits1,inits2, inits3), # Commenting this out since we are only testing init3
-                         plots = TRUE, method="parallel", module="wiener",
-                         #burnin=60000,     # Decreasing for development/troubleshooting 
-                         burnin=2000,
-                         #sample=10000,     # Decreasing for development/troubleshooting 
-                         sample=500,
-                         thin=100)
+
   # Save summary statistics
-  summary_stats_WT2<-summary(results_WT2)
+  Summary<-summary(Results)
   
   # Save model outputs and results for later analysis
   # Generates file name based on group
+  output_filename = paste(Device,Condition,Attempt_Date,Attempt_Num, sep="_")
   output_filename = "M1_params_HE.RData"
   output_filepath = output_path / output_filename
   save(results_WT2,Data_WT_attempt2,summary_stats_WT2, file=output_filepath) 
