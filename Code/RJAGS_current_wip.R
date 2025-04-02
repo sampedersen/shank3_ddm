@@ -53,7 +53,7 @@ se <- function(x) {
 #====================== 1a. User-Defined Settings ==============================
 #_______________________________________________________________________________
 # Identify the device 
-Device = "BM"     # BM or FS 
+Device = "FS"     # BM or FS 
 # Condition 
 Condition = "HE"  # HE or WT 
 # Attempt Date
@@ -66,7 +66,7 @@ BurnIn = 1000
 Sample = 2000
 Thinning = 200
 Chains = 2
-temp = 0
+
 
 
 
@@ -320,12 +320,12 @@ Data = Data
     .RNG.name="base::Mersenne-Twister", 
     .RNG.seed=6666))
   Results <- run.jags(model = file.path(model_path,"M1_ug_drift.txt"), 
-                      monitor=monitor, data=dat, n.chains=3,
+                      monitor=monitor, data=dat, n.chains=Chains,
                       inits=c(inits1,inits2, inits3), 
                       plots = TRUE, method="parallel", module="wiener",
-                      burnin=2000,
-                      sample=500,
-                      thin=100)
+                      burnin=BurnIn,
+                      sample=Sample,
+                      thin=Thinning)
 
   # Save summary statistics
   Summary<-summary(Results)
