@@ -12,6 +12,7 @@ pack = c("rtdists", "RWiener", "tidyr", "dplyr", "purrr", "ggplot2", "gridExtra"
          "tidyverse", "DEoptim", "Rcpp", "parallel", "RcppParallel", "loo", 
          "stats4", "pracma", "tidymodels", "fdrtool", "boot", "ggridges", 
          "ggpubr", "HDInterval", "fs", "here", "readr", "writexl")
+suppressPackageStartupMessages(lapply(pack, require, character.only = TRUE))
 
 # Define paths 
 setwd("C:/Users/Sammb/Documents/Addtnl Code/dmc-master/dmc-master")
@@ -22,21 +23,19 @@ source("dmc/dmc.R")
 # Identify the device ["BM", "FS"]
 Device = "BM"     # BM or FS 
 # Attempt Date
-Attempt_Date = "Apr08"
+Attempt_Date = "Apr10"
 # Attempt Number 
-Attempt_Num = 1
+Attempt_Num = 4
 # Approach ["WDM", "RJAGS"]
 Approach = "WDM"  
 # Data file name 
 data_filename = "Epoch4_Full_DDM_Data.xlsx"  
-# Identify the sub-epoch 
 
 ########################################################################################################################################################
 
 # Set day limits 
 Day_Min_Lookup <- c(`1`=18, `2`=23, `3`=28, `4`=33, `5`=38, `6`=43, `7`=48)
 Day_Max_Lookup <- c(`1`=22, `2`=27, `3`=32, `4`=37, `5`=42, `6`=47, `7`=52)
-
 
 # Set home dir and source location based on device 
 if (Device == "BM"){
@@ -92,6 +91,7 @@ mice_data = mice_data_raw %>%
 mice_data = mice_data %>%
   mutate(
     S = ifelse(value<0, "s1", "s2"),
+    ## Edit line above to completely ignore 0's 
     R = ifelse(choice==0,"r1","r2"),
     myType = case_when(
       S == "s1" & R == "r1" ~ "s1.r1",
@@ -102,7 +102,7 @@ mice_data = mice_data %>%
       myType %in% c("s1.r1", "s2.r2") ~ "1",
       myType %in% c("s1.r2", "s2.r1") ~ "0"))
 
-# Remove RT outliers         
+# Remove RT outliers - Brian: maybe dont even do this or 0 to 10         
 mice_data = mice_data %>%
   group_by(mouse) %>%
   filter(rt > max(.250,(mean(rt) - (2*sd(rt)))), 
@@ -193,12 +193,15 @@ wdm_param_storage <- list()
 # Loop over mice
 for (iMice in 1:numMice) {
   param_byPref <- list()  # Reset per mouse
+  data_byPref <- list() 
   
   for (iRank in 1:4) {
     params_byStim <- list()
+    data_byStim <- list() 
     
     for (stim_name in c("wdm_data_s1", "wdm_data_s2")) {
       params_byEpoch <- list()
+      data_byEpoch <- list() 
       
       for (iEpoch in 1:7) {
         wdm_data <- wdm_storage[[(iMice)]][[iRank]][[stim_name]][[iEpoch]]
@@ -212,6 +215,7 @@ for (iMice in 1:numMice) {
         
         # Store with epoch index
         params_byEpoch[[paste0("epoch", iEpoch)]] <- fit
+        #data_byEpoch[[paste0("epoch",iEpoch))]] <- 
       }
       
       # Store stimulus type
@@ -226,9 +230,60 @@ for (iMice in 1:numMice) {
   wdm_param_storage[[as.character(iMice)]] <- param_byPref
 }
 
+###################### 
+
+
+
+
+
+
+
+
+# Prepare empty list to hold output
+long_data <- list()
+
+# Loop through all layers
+for (mouse in seq_along(wdm_param_storage)) {
+  for (rank in names(wdm_param_storage[[mouse]])) {
+    for (stim in names(wdm_param_storage[[mouse]][[rank]])) {
+      for (epoch in names(wdm_param_storage[[mouse]][[rank]][[stim]])) {
+        
+        # Extract coefficients safely
+        extracting_params <- tryCatch({
+          wdm_param_storage[[mouse]][[rank]][[stim]][[epoch]]$coefficients
+        }, error = function(e) NULL)
+        
+        # Skip if missing or NULL
+        if (is.null(extracting_params)) next
+        
+        # Coerce to one-row data frame
+        df <- as.data.frame(t(extracting_params))
+        
+        # Add indexing info
+        df$mouse <- mouse
+        df$rank <- rank
+        df$stim <- stim
+        df$epoch <- epoch
+        
+        # Append to list
+        long_data[[length(long_data) + 1]] <- df
+        }}}}
+
+
+# Combine all pieces into one long data frame
+unrolled_df <- dplyr::bind_rows(long_data)
+
+
+
+
+
 
 long_format_params <- bind_rows(
   lapply(seq_along(wdm_param_storage), function(i) {
+    # i = mouse
+    # j = rank
+    # s = stim
+    # e = epoch 
     bind_rows(
       lapply(seq_along(wdm_param_storage[[i]]), function(j) {
         bind_rows(
@@ -254,14 +309,25 @@ long_format_params <- bind_rows(
                   row.names = NULL  # Avoid row names warning
                 )}))}))}))}))
 
-# Remove row names
+# Remove row name
 rownames(long_format_params) <- NULL
 
 
 # Export
-file_name <- "parameters_est_6.csv"
+file_name = paste(paste("parameterEstimates",Approach,Device,Attempt_Date,Attempt_Num,sep="_"),".csv",sep="")
 export_file <- file.path(output_path, file_name)  # Properly concatenate paths
-write.csv(long_format_params, export_file, row.names = FALSE)
+write.csv(unrolled_df, export_file, row.names = FALSE)
+
+# Export simulated data 
+sim_data_name = paste(paste("simData",Approach,Device,Attempt_Date,Attempt_Num,sep="_"),".csv",sep="")
+export_file <- file.path(output_path, sim_data_name)  # Properly concatenate paths
+write.csv(wdm_data, export_file, row.names = FALSE)
+
+# Export simulated data by epoch 
+
+
+
+
 
 # Initialize lists properly
 LLEs <- vector("list", length(mice_data))  
