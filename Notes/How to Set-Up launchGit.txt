@@ -1,0 +1,3 @@
+- In File Explorer, create a new Shortcut 
+- Enter location as:
+	"<path/to/GitBash.exe>" --cd="<path/to/git/repo>"

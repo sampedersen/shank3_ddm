@@ -74,6 +74,7 @@ data_path = home_dir / "Data"
 model_path = home_dir / "Model"
 output_path = home_dir / "Outputs"
 code_path = home_dir / "Code"
+session_name = paste(Approach,Device,Condition,Attempt_Date,Attempt_Num,sep="_")
 
 # Load data
 # Note: edit this section depending on how the data is stored 
@@ -134,5 +135,8 @@ df_training <- train_data
 # Storage for DDM info 
 wdm_storage <- list()
 wdm_param_storage <- list()
+
+
+
 
 
