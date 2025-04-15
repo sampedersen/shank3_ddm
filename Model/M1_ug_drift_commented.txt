@@ -30,6 +30,7 @@ model {
     #   - b1.pr: Controls for precision (inverse of variance) of the regression weight across subjects
     #       - Controls how much b1.p (participant-level) deviates from b1.mu (group-level)
     #       - b1.pr follows a Gamma distribution with shape parameter of 1 and rate parameter of 0.1
+
     b1.mu ~ dnorm(0, 1)       # Prior mean for regression coefficient (centered at 0)
     b1.pr ~ dgamma(1, 0.1)    # Precision (inverse variance) for regression coefficient
     

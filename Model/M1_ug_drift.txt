@@ -1,3 +1,8 @@
+#### MORE HOMEWORK 
+
+
+
+
 model {
     # model structure: hyper parameters-subject-trial-likelihood
     # code before for loop are setting up hyper parameters/hyperpriors
@@ -43,6 +48,13 @@ model {
 
         bias.p[p] ~ dbeta(bias.alpha, bias.beta)T(0.01,0.99) #T() scaling function 
 
+##### Could add nested for loop for days 
+# parameter.p[p,Day] ~ {see above} 
+# Hyper-hyper parameters (group level; mus) > hyper parameters (subject-level, p) > parameters (day-level, d) 
+# Need to make sure to add all levels of "parameters" (Day) 
+# Feed into the dat (dumping) 
+### (Homework) 
+
     }
 
     for (i in 1:N) { # trial level
@@ -63,7 +75,7 @@ model {
         bet[i] <- bias.p[idxP[i]]
 
         # The actual drift rate, added variability to account for emprical facts
-        w[i] ~ dnorm(li.hat[i], e.p.tau[idxP[i]]) #informed by subject level estimate, e.p.tau cross trial noise
+        w[i] ~ dnorm(li.hat[i], e.p.tau[idxP[i]]) #informed by subject level estimate, e.p.tau cross trial noise (also called eta) 
 
         # The linear regression of the value probabilities and value magnitude
         li.hat[i] <- b1.p[idxP[i]] * offer[i]

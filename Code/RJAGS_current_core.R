@@ -60,10 +60,15 @@ Attempt_Date = "Apr02"
 Attempt_Num = 1
 
 # Model Settings 
-BurnIn = 1000
-Sample = 2000
-Thinning = 200
-Chains = 2
+# Red flags lol
+
+# Randomly sample a subset of the dataset instead of reducing sampling/thinning
+# Blair ~95k burnin
+# Increase 
+BurnIn = 10000 # First 10k samples we toss
+Sample = 2000  # Sample 2000 times
+Thinning = 10  # 1 per every 10 samples picked 
+Chains = 3    # 3 starting points (min) to converge at same end point 
 
 # Data file name 
 data_filename = "Epoch4_Mid-to-Late_DDM_Data.xlsx"     
@@ -74,11 +79,14 @@ data_filename = "Epoch4_Mid-to-Late_DDM_Data.xlsx"
 # Limit number of cores used for parallel processing based on number available per device 
 if (Device == "BM"){
   home_dir = path("C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank3")
-  dedicated_cores <- round((detectCores(logical=TRUE)-2.5)/2)
+  dedicated_cores <- Chains
+  #  dedicated_cores <- round((detectCores(logical=TRUE)-2.5)/2)
 } else {
   home_dir = path("C:/Users/Feede/Documents/Sam_Temp/Shank3")
-  dedicated_cores <- round((detectCores(logical=TRUE)-2.5)/2)}
-RcppParallel::setThreadOptions(numThreads = dedicated_cores)
+  dedicated_cores <- Chains
+  # dedicated_cores <- round((detectCores(logical=TRUE)-2.5)/2)}  # Should match the number of cores 
+}
+  RcppParallel::setThreadOptions(numThreads = dedicated_cores)
 
 # Set up paths 
 data_path = home_dir / "Data"
@@ -108,6 +116,13 @@ df = df_raw %>%
 # Remove RT Outliers         
 # Note: Hard limit cut-offs at [.25s,7s]
 # Note: Relative limits +/- 2SD of average RT per subject 
+
+# Consideration: Bin the response time acrose subjects (15,25ms) and see the timepoint that 
+# they're "correct" around 50%
+# Easy case where mice knows its preference, stronger true decision
+# Floor can def be lower than .25, read mice DDMs 
+
+###### COME BACK 
 df = df %>%
   group_by(subj_idx) %>%
   filter(rt > max(.250,(mean(rt) - (2*sd(rt)))), 
@@ -123,6 +138,7 @@ idx <- which(df$choice == 0)  # Pull indices for rejected offer trials
 df$RT <- df$rt                # Duplicate RTs to a new column   
 df$RT[idx] <- df$rt[idx] * -1 # Update new column for signed RT values 
 
+# TAKE THIS OUT - DONT NEED RN 
 # Separate for training (80%) and testing (20%)
 train_test_split <- df %>%            # Create a new dataframe 
   group_by(subj_idx,day) %>%          # Group by mouse and by day 
@@ -157,8 +173,8 @@ Data = Data
   
   # Modeling variables
   y=Data$RT                # Signed RT values (to be predicted) 
-  N= length(y)                # Number of total trials 
-  ns=length(unique(idxP))     # number of subjects 
+  N= length(y)                # Number of total trials
+  ns=length(unique(idxP))     # number of subjects (loops through for subject-level)
   
   # Prepare data in JAGS format 
   dat <- dump.format(list(N=N, 
@@ -171,27 +187,33 @@ Data = Data
 #   4b. Parameter initialization -----------------------------------------------
 
   # Identify variables to track 
-  monitor = c("deviance",
+  monitor = c("deviance",            # Come back to this 
               # Group-level parameters (boundary, non-decision time, starting-point bias, effect of offer on drift rate)
               "alpha.mu","theta.mu","bias.mu","b1.mu",
               # Subject-level parameters
               "alpha.p","theta.p","bias.p","b1.p")
 
   # Run the JAGS model using M1_ug_drift.txt and parallel MCMC sampling 
+  # Tweak these last as needed, address model "settings" first 
+  # Change seed > values > RNG
+  # Keep the precisions > 0.01 (ideally ~ish 0.1~0.5)
+  
+  # Uniform priors and uninformed priors 
   # Initial parameters 1:
+  
   inits1 <- dump.format(list(
     alpha.mu=2, alpha.pr=.5,            # Alpha
-    theta.mu=0.200, theta.pr=0.005,     # Theta
+    theta.mu=0.200, theta.pr=0.5,       # Theta
     b1.mu=0.16, b1.pr=0.1,              # Drift rate
     bias.mu=0.52, bias.kappa=.5,        # Bias
     y_pred=y,                           # RT values
-    .RNG.name="base::Super-Duper",      # Random Number Generator
+    .RNG.name="base::Super-Duper",      # Random Number Generator (Blair has had issues w this one (not so super))
     .RNG.seed=67882))                   # Seed selected 
   
   # Initial parameters 2: 
   inits2 <- dump.format(list(
-    alpha.mu=1, alpha.pr=0.5,         # Alpha 
-    theta.mu=0.2,theta.pr=0.005,         # Theta 
+    alpha.mu=1, alpha.pr=0.5,           # Alpha 
+    theta.mu=0.2,theta.pr=0.5,          # Theta 
     b1.mu=0.05, b1.pr=0.1,              # Drift rate 
     bias.mu=0.5,bias.kappa=.5, 
     y_pred=y,  
@@ -212,13 +234,15 @@ Data = Data
   Results <- run.jags(model = file.path(model_path,"M1_ug_drift.txt"), 
                       monitor=monitor, data=dat, n.chains=Chains,
                       inits=c(inits1,inits2, inits3), 
-                      plots = TRUE, method="parallel", module="wiener",
+                      plots = TRUE, method="parallel", module="wiener",  ## Homework: Read about WIener process and 2d space
                       burnin=BurnIn,
                       sample=Sample,
                       thin=Thinning)
 
   # Save summary statistics
   Summary<-summary(Results)
+  
+  # Goal for 
   
   # Save model outputs and results for later analysis
   # Generates file name based on group
