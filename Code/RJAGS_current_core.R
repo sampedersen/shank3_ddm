@@ -55,7 +55,7 @@ Device = "FS"     # BM or FS
 # Condition 
 Condition = "HE"  # HE or WT 
 # Attempt Date
-Attempt_Date = "Apr02"
+Attempt_Date = "Apr15"
 # Attempt Number 
 Attempt_Num = 1
 
@@ -96,6 +96,7 @@ code_path = home_dir / "Code"
 
 # Load data
 # Note: edit this section depending on how the data is stored 
+# Check if file exists as .csv, if not check as .xlsx
 data_filepath = file.path(data_path, data_filename)    
 df_raw = read_excel(data_filepath)                    # use this for .xlsx
 
@@ -110,8 +111,13 @@ df = df_raw %>%
          choice = `OZ outcome 1 or 0`,       # variable containing choice (coded, 1=accept, 0=reject)
          rt = `offer zone RT (s)`,           # variable containing rt in seconds
          offer = `offer`,        # variable containing offer amount
-         group = `genotype terminal`) %>%    # variable participant's condition ('WT'=Wildtype, 'HT'=Shank3 het)
-  select(subj_idx, group, day, trial, choice, rt, offer)
+         group = `genotype terminal`,
+         value = `offer value`) %>%    # variable participant's condition ('WT'=Wildtype, 'HT'=Shank3 het)
+  select(subj_idx, group, day, trial, choice, rt, offer, value)
+
+
+ggplot(data=df) + 
+  geom_histogram(mapping = aes(rt), binwidth=5)
 
 # Remove RT Outliers         
 # Note: Hard limit cut-offs at [.25s,7s]
@@ -125,8 +131,8 @@ df = df_raw %>%
 ###### COME BACK 
 df = df %>%
   group_by(subj_idx) %>%
-  filter(rt > max(.250,(mean(rt) - (2*sd(rt)))), 
-         rt < min(7,(mean(rt) + (2*sd(rt))))) %>% 
+  filter(rt > (mean(rt) - (2*sd(rt))), 
+         rt < (mean(rt) + (2*sd(rt)))) %>% 
   ungroup()
 
 # Compute the number of trials lost due to RT filtering 
