@@ -55,9 +55,9 @@ Device = "FS"     # BM or FS
 # Condition 
 Condition = "HE"  # HE or WT 
 # Attempt Date
-Attempt_Date = "Apr15"
+Attempt_Date = format(Sys.Date(), "%B-%d")
 # Attempt Number 
-Attempt_Num = 1
+Attempt_Num = format(Sys.time(), "%H-%M")
 
 # Model Settings 
 # Red flags lol
@@ -79,14 +79,12 @@ data_filename = "Epoch4_Mid-to-Late_DDM_Data.xlsx"
 # Limit number of cores used for parallel processing based on number available per device 
 if (Device == "BM"){
   home_dir = path("C:/Users/Sammb/Documents/Sinai/Sweis Lab/Projects/Shank3")
-  dedicated_cores <- Chains
-  #  dedicated_cores <- round((detectCores(logical=TRUE)-2.5)/2)
+  setwd(home_dir)
 } else {
   home_dir = path("C:/Users/Feede/Documents/Sam_Temp/Shank3")
-  dedicated_cores <- Chains
-  # dedicated_cores <- round((detectCores(logical=TRUE)-2.5)/2)}  # Should match the number of cores 
+  setwd(home_dir)
 }
-  RcppParallel::setThreadOptions(numThreads = dedicated_cores)
+RcppParallel::setThreadOptions(Chains)
 
 # Set up paths 
 data_path = home_dir / "Data"
@@ -115,10 +113,6 @@ df = df_raw %>%
          value = `offer value`) %>%    # variable participant's condition ('WT'=Wildtype, 'HT'=Shank3 het)
   select(subj_idx, group, day, trial, choice, rt, offer, value)
 
-
-ggplot(data=df) + 
-  geom_histogram(mapping = aes(rt), binwidth=5)
-
 # Remove RT Outliers         
 # Note: Hard limit cut-offs at [.25s,7s]
 # Note: Relative limits +/- 2SD of average RT per subject 
@@ -138,6 +132,7 @@ df = df %>%
 # Compute the number of trials lost due to RT filtering 
 # Note: ~5% loss in data is fine, shouldnt exceed ~8% 
 lossToCleaning <- (nrow(df_raw) - nrow(df)) / nrow(df_raw)
+print(paste0("Loss to cleaning: ", lossToCleaning*100, "%"))
 
 # Make rejected choices into negative RT values 
 idx <- which(df$choice == 0)  # Pull indices for rejected offer trials 
@@ -146,19 +141,47 @@ df$RT[idx] <- df$rt[idx] * -1 # Update new column for signed RT values
 
 # TAKE THIS OUT - DONT NEED RN 
 # Separate for training (80%) and testing (20%)
-train_test_split <- df %>%            # Create a new dataframe 
-  group_by(subj_idx,day) %>%          # Group by mouse and by day 
-  mutate(Set = ifelse(runif(n()) < 0.8, "Train","Test"))
-train_data <- filter(train_test_split,Set=="Train")   # Assign to training dataframe
-test_data <- filter(train_test_split,Set=="Test")     # Assign to testing dataframe 
+#train_test_split <- df %>%            # Create a new dataframe 
+#  group_by(subj_idx,day) %>%          # Group by mouse and by day 
+#  mutate(Set = ifelse(runif(n()) < 0.8, "Train","Test"))
+#train_data <- filter(train_test_split,Set=="Train")   # Assign to training dataframe
+#test_data <- filter(train_test_split,Set=="Test")     # Assign to testing dataframe 
 
 # Reassign df as training_data for development and troubleshooting purposes 
 # Change this later, if needed 
-df <- train_data
+#df <- train_data
 
 #_______________________________________________________________________________
 #==================== # 4. Model fitting (DEVELOPMENT PHASE) ===================
 #_______________________________________________________________________________
+# Subsetting 
+selected_mice <- df %>%
+  distinct(subj_idx,group) %>%    # Lists each mouse with condition info 
+  group_by(group) %>%   # Group by condition 
+  slice_sample(n=5) %>%  # 5 per group 
+  pull(subj_idx)    # Pull subject ids 
+subset_df <- df %>%
+  filter(subj_idx %in% selected_mice)
+samples_per_trialCombo <- 50
+balanced_subset <- subset_df %>%
+  group_by(subj_idx,choice,value) %>%
+  filter(n() >= samples_per_trialCombo) %>% # Keep groups that have enough data 
+  slice_sample(n=samples_per_trialCombo)
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 4. Model fitting (DEVELOPMENT PHASE) 
 
 # Filter based on user-identified group of interest 
