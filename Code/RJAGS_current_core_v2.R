@@ -135,7 +135,7 @@ selected_mice <- df %>%
   slice_sample(n=12) %>%  # 12 per group 
   pull(subj_idx)    # Pull subject ids 
 print(sort(selected_mice))
-selected_days <- c(23, 28, 32, 37, 42, 47, 52)
+selected_days <- c(seq(23, 52, 3),52)
 subset_df <- df %>%
   filter(subj_idx %in% selected_mice) %>%
   filter(day %in% selected_days)
@@ -282,7 +282,8 @@ for (genotype in unique(balanced_subset$group)) {
                       modules ="wiener",  
                       burnin=BurnIn,
                       sample=Sample,
-                      thin=Thinning)
+                      thin=Thinning,
+                      summarise=TRUE)
   
   # Save summary statistics
   Summary<-summary(Results)
@@ -293,3 +294,44 @@ for (genotype in unique(balanced_subset$group)) {
   save(Results,Data,Summary, file=output_filepath) 
 }
 
+
+
+# Load one of the files
+for (gg in c("WT", "HE")) {
+  if (gg=="WT") {
+    load(file = "C:/Users/Feede/Documents/Sam_Temp/Shank3/Outputs/WT_April-23_13-43.RData")
+    WT_Results <- Results
+    WT_Summary <- Summary
+    WT_Summary %>% as.data.frame() %>%
+      filter(psrf > 2) # Select only rows with PSFR > 1
+  } else if (gg=="HE") {
+    load(file="C:/Users/Feede/Documents/Sam_Temp/Shank3/Outputs/HE_April-23_13-43.RData")
+    HE_Results <- Results
+    HE_Summary <- Summary
+    HE_Summary %>% as.data.frame() %>%
+      filter(psrf > 2) 
+  }
+}
+
+par(mfrow = c(3, 4), mar = c(4, 4, 2, 1))
+for (i in 1:12) {
+  traceplot(mcmc_results[, paste0("alpha.p[", i, "]")], 
+            main = paste0("Traceplot for alpha.p[", i, "]"))
+}
+par(mfrow = c(3, 4), mar = c(4, 4, 2, 1))
+for (i in 1:12) {
+  traceplot(mcmc_results[, paste0("theta.p[", i, "]")], 
+            main = paste0("Traceplot for theta.p[", i, "]"))
+}
+  
+par(mfrow = c(3, 4), mar = c(4, 4, 2, 1))
+for (i in 1:12) {
+  traceplot(mcmc_results[, paste0("bias.p[", i, "]")], 
+            main = paste0("Traceplot for bias.p[", i, "]"))
+}
+
+par(mfrow = c(3, 4), mar = c(4, 4, 2, 1))
+for (i in 1:12) {
+  traceplot(mcmc_results[, paste0("b1.p[", i, "]")], 
+            main = paste0("Traceplot for b1.p[", i, "]"))
+}
