@@ -103,13 +103,15 @@ df = df_raw %>%
          rt = `offer zone RT (s)`,           # variable containing rt in seconds
          offer = `offer`,        # variable containing offer amount
          group = `genotype terminal`, # variable participant's condition ('WT'=Wildtype, 'HT'=Shank3 het)
-         value = `offer value`) %>%    
-  select(subj_idx, group, day, trial, choice, rt, offer, value)
+         value = `offer value`,
+         flavor = `flavor`) %>%    
+  select(subj_idx, group, day, trial, choice, rt, offer, value, flavor)
 
 # Remove RT Outliers (note: removed bottom limit, all RTs are under 2SDs)         
 df = df %>%
   group_by(subj_idx) %>%
-  filter(rt < (mean(rt) + (2*sd(rt)))
+  filter(rt < (mean(rt) + (2*sd(rt))),
+         rt > 0.150
          #rt < (mean(rt) + (2*sd(rt)))
          ) %>% 
   ungroup()
@@ -147,7 +149,18 @@ balanced_subset <- subset_df %>%
   sample_frac(.25) %>%
   ungroup()
 
+balanced_subset <- balanced_subset %>%
+  mutate(
+    flavor_choc = if_else(flavor == 1, 1, 0),
+    flavor_ban = if_else(flavor == 2, 1, 0),
+    flavor_grape = if_else(flavor == 3, 1, 0)
+    # Plain is reference (implicitly 0 across all)
+  )
+
 nrow(balanced_subset %>% filter(choice==0))
+nrow(balanced_subset %>% filter(flavor_choc==1))
+nrow(balanced_subset %>% filter(flavor_ban==1))
+nrow(balanced_subset %>% filter(flavor_grape==1))
 nrow(balanced_subset %>% filter(choice==1))
 nrow(balanced_subset %>% filter(value_group=="pos"))
 nrow(balanced_subset %>% filter(value_group=="neg"))
@@ -168,8 +181,12 @@ for (genotype in unique(balanced_subset$group)) {
     filter(group==genotype) %>%
     mutate(idxP = as.numeric(ordered(subj_idx)))
     
+  
+  
+  #### NOTE: USING VALUE INSTEAD OF OFFER !!!!
+  
   idxP = Data$idxP         # Sequentially numbered list of subject indices 
-  offer = Data$offer       # Pull offers 
+  offer = Data$value       # Pull offers 
   rtpos = Data$rt          # Pull RTs (original, non-signed)
   
   # Modeling variables
@@ -289,7 +306,7 @@ for (genotype in unique(balanced_subset$group)) {
   Summary<-summary(Results)
   
   # Save model outputs and results for later analysis
-  output_filename = paste(paste(genotype,Attempt_Date,Attempt_Num, sep="_"), ".RData",sep="")
+  output_filename = paste(paste("VALUE",genotype,Attempt_Date,Attempt_Num, sep="_"), ".RData",sep="")
   output_filepath = output_path / output_filename
   save(Results,Data,Summary, file=output_filepath) 
 }

@@ -9,8 +9,22 @@ model {
     
     # Mean estimates of the linear regressions for the weights
         b1.mu ~ dnorm(0, 1)
+	b2.mu ~ dnorm(0, 1)
+   	b4.mu ~ dnorm(0, 1)
+
+	# group-level means for flavor effects
+	b_flavor_choc.mu ~ dnorm(0, 1)
+    	b_flavor_ban.mu ~ dnorm(0, 1)
+    	b_flavor_grape.mu ~ dnorm(0, 1)
+
 	# precisions for the linear regression estimates
         b1.pr ~ dgamma(1, 0.1)
+	b2.pr ~ dgamma(1, 0.1)
+	b4.pr ~ dgamma(1, 0.1)
+	# group-level precisions for flavor effects
+	b_flavor_choc.pr ~ dgamma(1, 0.1)
+    	b_flavor_ban.pr ~ dgamma(1, 0.1)
+    	b_flavor_grape.pr ~ dgamma(1, 0.1)
 
     # mean estimates DDM parameters
         alpha.mu ~ dunif(0.001, 5) # boundary 
@@ -38,7 +52,14 @@ model {
 
     for (p in 1:ns) { # subject level
 
-        b1.p[p] ~ dnorm(b1.mu, b1.pr)
+        b1.p[p] ~ dnorm(b1.mu, b1.pr)      # offer
+        b2.p[p] ~ dnorm(b2.mu, b2.pr)      # value
+        b4.p[p] ~ dnorm(b4.mu, b4.pr)      # day
+
+	# New flavor coefficients per subject
+        b_choc.p[p] ~ dnorm(b_flavor_choc.mu, b_flavor_choc.pr)
+        b_ban.p[p] ~ dnorm(b_flavor_ban.mu, b_flavor_ban.pr)
+        b_grape.p[p] ~ dnorm(b_flavor_grape.mu, b_flavor_grape.pr)
 
         alpha.p[p] ~ dnorm(alpha.mu, alpha.pr)
 
@@ -75,10 +96,16 @@ model {
         bet[i] <- bias.p[idxP[i]]
 
         # The actual drift rate, added variability to account for emprical facts
-        w[i] ~ dnorm(li.hat[i], e.p.tau[idxP[i]]) #informed by subject level estimate, e.p.tau cross trial noise (also called eta) 
+        w[i] ~ dnorm(li.hat[i], e.p.tau[idxP[i]])
 
         # The linear regression of the value probabilities and value magnitude
-        li.hat[i] <- b1.p[idxP[i]] * offer[i]
+        # Linear model with dummy-coded flavors
+        li.hat[i] <- b1.p[idxP[i]] * offer[i] +
+                     b2.p[idxP[i]] * reward[i] +
+                     b4.p[idxP[i]] * day[i] +
+                     b_choc.p[idxP[i]] * flavor_choc[i] +
+                     b_ban.p[idxP[i]] * flavor_ban[i] +
+                     b_grape.p[idxP[i]] * flavor_grape[i]
 
     }
 }
